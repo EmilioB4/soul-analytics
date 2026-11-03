@@ -1,0 +1,5 @@
+"use client";
+import {useState} from "react";import {useRouter} from "next/navigation";import {supabase} from "../../supabase";
+export default function UpdatePassword(){const [password,setPassword]=useState("");const [message,setMessage]=useState("");const router=useRouter();
+async function save(e:React.FormEvent){e.preventDefault();if(!supabase)return;const {data:{user}}=await supabase.auth.getUser();if(!user){setMessage("This link is invalid or expired. Request a new invitation.");return}const {error}=await supabase.auth.updateUser({password});if(error){setMessage(error.message);return}router.replace("/")}
+return <main><div className="panel"><h1>Set your password</h1><p className="sub">Create a password for your Soul Analytics account</p><form onSubmit={save}><label className="field">New password</label><input type="password" required minLength={12} autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)}/><button>Save password</button></form>{message&&<p className="msg">{message}</p>}</div></main>}

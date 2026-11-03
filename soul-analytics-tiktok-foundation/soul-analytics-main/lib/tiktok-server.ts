@@ -1,0 +1,3 @@
+import {createClient} from "@supabase/supabase-js";
+export function admin(){const url=process.env.NEXT_PUBLIC_SUPABASE_URL;const key=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!key)throw new Error("Server-side Supabase credentials are not configured");return createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}})}
+export async function owner(authorization:string|null){const token=authorization?.match(/^Bearer (.+)$/)?.[1];if(!token)return null;const db=admin();const {data:{user},error}=await db.auth.getUser(token);if(error||!user)return null;const {data}=await db.from("profiles").select("user_id").eq("user_id",user.id).maybeSingle();return data?user:null}

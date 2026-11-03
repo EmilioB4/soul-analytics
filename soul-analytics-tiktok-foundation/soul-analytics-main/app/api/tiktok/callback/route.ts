@@ -1,0 +1,4 @@
+import {NextRequest,NextResponse} from "next/server";
+import {timingSafeEqual} from "node:crypto";
+export const runtime="nodejs";
+export async function GET(req:NextRequest){const origin=req.nextUrl.origin;const provided=req.nextUrl.searchParams.get("state")||"";const saved=req.cookies.get("soul_tiktok_state")?.value||"";const expected=saved.split(".")[0]||"";const matches=!!provided&&provided.length===expected.length&&timingSafeEqual(Buffer.from(provided),Buffer.from(expected));const response=NextResponse.redirect(new URL(matches?"/?tiktok=authorization-pending":"/?tiktok=invalid-state",origin));response.cookies.delete("soul_tiktok_state");/* Never exchange or persist an authorization code until the provider's callback contract and secure token storage have been verified. */return response}
