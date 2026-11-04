@@ -1,107 +1,81 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 
-type CardData={start:string;end:string;total:number;paidOrders:number;unitsSold:number;topSellers:{name:string;quantity:number;sales:number;image:string|null}[];topProfitItems?:{skuId:string;name:string;image:string|null;quantity:number;profit:number}[];profitEstimate?:{profit:number|null;partial:boolean;unpricedSkuCount:number;shippingMissingOrders:number};payoutEstimate?:{expected:number;assumedFee:number;recordedShipping:number;missingShippingOrders:number;settledOrderAmount:number|null;settledOrderCount:number;unsettledOrderCount:number;actualBankPayout:number|null;partial:boolean};limited:boolean};
+type TopProduct={skuId:string;name:string;image:string|null;quantity:number;profit:number};
+type CardData={start:string;end:string;total:number;paidOrders:number;unitsSold:number;topSellers:{name:string;quantity:number;sales:number;image:string|null}[];topProfitItems?:TopProduct[];profitEstimate?:{profit:number|null;partial:boolean;unpricedSkuCount:number;shippingMissingOrders:number};payoutEstimate?:{expected:number;assumedFee:number;recordedShipping:number;missingShippingOrders:number;settledOrderAmount:number|null;settledOrderCount:number;unsettledOrderCount:number;actualBankPayout:number|null;partial:boolean};limited:boolean};
+type Theme={id:string;label:string;color:string;soft:string};
+const THEMES:Theme[]=[
+ {id:'iris',label:'Iris',color:'#B38BFF',soft:'#7757D6'},
+ {id:'sky',label:'Sky',color:'#7ACDFF',soft:'#338DBB'},
+ {id:'aqua',label:'Aqua',color:'#7DE2D5',soft:'#299E9D'},
+ {id:'blush',label:'Blush',color:'#EEB2E3',soft:'#BA6BBD'},
+ {id:'champagne',label:'Champagne',color:'#F5DDAF',soft:'#B7925C'},
+ {id:'mono',label:'Mono',color:'#D7DCE7',soft:'#697688'}
+];
 const usd=(n:number)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2}).format(n);
-const compactMoney=(n:number)=>usd(n);
-const shortDate=(s:string)=>new Date(`${s}T12:00:00Z`).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
-function rounded(ctx:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,r:number){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
-function shrink(ctx:CanvasRenderingContext2D,value:string,max:number,initial:number,min=20){let size=initial;do{ctx.font=`700 ${size}px Arial, Helvetica, sans-serif`;if(ctx.measureText(value).width<=max)break;size-=2}while(size>min);return size}
-function line(ctx:CanvasRenderingContext2D,text:string,x:number,y:number,opts:{size?:number;color?:string;weight?:number;align?:CanvasTextAlign;maxWidth?:number}={}){const {size=32,color='#f7f7f9',weight=500,align='left',maxWidth}=opts;ctx.font=`${weight} ${size}px Arial, Helvetica, sans-serif`;ctx.fillStyle=color;ctx.textAlign=align;ctx.fillText(text,x,y,maxWidth)}
-function glow(ctx:CanvasRenderingContext2D,x:number,y:number,color:string,radius:number){const g=ctx.createRadialGradient(x,y,0,x,y,radius);g.addColorStop(0,color);g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.fillRect(x-radius,y-radius,radius*2,radius*2)}
-// Draw all decorative shapes and icons with Canvas paths so PNG exports never depend on an icon font.
-function icon(ctx:CanvasRenderingContext2D,kind:'sales'|'profit'|'units'|'orders',x:number,y:number,scale=1){
- ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#c8d8ee';
- if(kind==='sales'){
-  for(const [cx,cy] of [[12,30],[12,22],[28,26],[28,18],[28,10]]){ctx.beginPath();ctx.ellipse(cx,cy,9,4,0,0,Math.PI*2);ctx.stroke()}
-  ctx.beginPath();ctx.moveTo(3,22);ctx.lineTo(3,30);ctx.bezierCurveTo(3,36,21,36,21,30);ctx.moveTo(19,10);ctx.lineTo(19,26);ctx.moveTo(37,10);ctx.lineTo(37,26);ctx.stroke();
- }else if(kind==='profit'){
-  [[5,25,8,14],[18,18,8,21],[31,8,8,31]].forEach(([bx,by,bw,bh])=>{ctx.strokeRect(bx,by,bw,bh)});
- }else if(kind==='units'){
-  ctx.beginPath();ctx.moveTo(21,4);ctx.lineTo(39,14);ctx.lineTo(39,33);ctx.lineTo(21,43);ctx.lineTo(3,33);ctx.lineTo(3,14);ctx.closePath();ctx.moveTo(3,14);ctx.lineTo(21,24);ctx.lineTo(39,14);ctx.moveTo(21,24);ctx.lineTo(21,43);ctx.stroke();
- }else{
-  ctx.beginPath();ctx.moveTo(4,8);ctx.lineTo(9,8);ctx.lineTo(14,29);ctx.lineTo(35,29);ctx.lineTo(40,14);ctx.lineTo(11,14);ctx.moveTo(16,35);ctx.arc(16,37,2,0,Math.PI*2);ctx.moveTo(31,35);ctx.arc(31,37,2,0,Math.PI*2);ctx.stroke();
- }
- ctx.restore();
-}
-function feather(ctx:CanvasRenderingContext2D,x:number,y:number,scale:number,angle:number,alpha:number){
- ctx.save();ctx.translate(x,y);ctx.rotate(angle);ctx.scale(scale,scale);ctx.globalAlpha=alpha;
- const fill=ctx.createLinearGradient(-80,-35,105,100);fill.addColorStop(0,'#9dd6ff');fill.addColorStop(.56,'#b6a8fa');fill.addColorStop(1,'#edbadf');
- ctx.fillStyle=fill;ctx.beginPath();ctx.moveTo(-90,68);ctx.bezierCurveTo(-55,-25,13,-75,84,-102);ctx.bezierCurveTo(91,-28,53,39,-90,68);ctx.closePath();ctx.fill();
- ctx.strokeStyle='#dddaff';ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(-108,82);ctx.quadraticCurveTo(2,-14,84,-102);ctx.stroke();ctx.restore();
-}
-function clippedText(ctx:CanvasRenderingContext2D,value:string,maxWidth:number,size:number,min=19){
- ctx.font=`600 ${size}px Arial, Helvetica, sans-serif`;
- if(ctx.measureText(value).width<=maxWidth)return {text:value,size};
- while(size>min&&ctx.measureText(value).width>maxWidth){size--;ctx.font=`600 ${size}px Arial, Helvetica, sans-serif`}
- if(ctx.measureText(value).width<=maxWidth)return {text:value,size};
- let shortened=value;while(shortened.length>1&&ctx.measureText(shortened+'…').width>maxWidth)shortened=shortened.slice(0,-1);
- return {text:shortened+'…',size};
-}
-function slab(ctx:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,r=25){
- rounded(ctx,x,y,w,h,r);
- const bg=ctx.createLinearGradient(x,y,x+w,y+h);bg.addColorStop(0,'#282930');bg.addColorStop(.55,'#1c1e24');bg.addColorStop(1,'#12141a');
- ctx.fillStyle=bg;ctx.fill();ctx.strokeStyle='rgba(199,205,221,.45)';ctx.lineWidth=1.5;ctx.stroke();
-}
-function drawCard(ctx:CanvasRenderingContext2D,data:CardData,logo:HTMLImageElement|null,productImages:(HTMLImageElement|null)[]){
+const date=(s:string)=>new Date(`${s}T12:00:00Z`).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
+function rgba(hex:string,a:number){const h=hex.replace('#','');return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${a})`}
+function txt(ctx:CanvasRenderingContext2D,s:string,x:number,y:number,size:number,color='#F9FAFC',weight=500,align:CanvasTextAlign='left') {ctx.font=`${weight} ${size}px Inter, Arial, sans-serif`;ctx.fillStyle=color;ctx.textAlign=align;ctx.fillText(s,x,y)}
+function fit(ctx:CanvasRenderingContext2D,s:string,max:number,size:number){let text=s;ctx.font=`600 ${size}px Inter, Arial, sans-serif`;while(ctx.measureText(text).width>max&&text.length>2){text=text.slice(0,-2)+'…'}return text}
+function glow(ctx:CanvasRenderingContext2D,x:number,y:number,r:number,color:string,a:number){const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,rgba(color,a));g.addColorStop(.46,rgba(color,a*.24));g.addColorStop(1,rgba(color,0));ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2)}
+function draw(ctx:CanvasRenderingContext2D,data:CardData,theme:Theme,logo:HTMLImageElement|null,images:(HTMLImageElement|null)[]){
  const W=1600,H=900;ctx.clearRect(0,0,W,H);
- const bg=ctx.createLinearGradient(0,0,W,H);bg.addColorStop(0,'#17191e');bg.addColorStop(.35,'#0a0c11');bg.addColorStop(1,'#14151b');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
- glow(ctx,0,0,'rgba(100,174,255,.16)',550);glow(ctx,1600,850,'rgba(191,132,235,.13)',650);
- // Iridescent foil and collectible-slab motifs inspired by Soul's banner.
- ctx.save();ctx.lineCap='round';let foil=ctx.createLinearGradient(0,0,480,210);foil.addColorStop(0,'#9bcfff');foil.addColorStop(.43,'#d8aafd');foil.addColorStop(.8,'#ffe5bd');foil.addColorStop(1,'#90ddf8');
- for(let j=0;j<3;j++){ctx.beginPath();ctx.moveTo(-80,210-j*28);ctx.bezierCurveTo(55,82-j*18,220,16-j*15,420,-90-j*9);ctx.strokeStyle=foil;ctx.lineWidth=j===0?8:2;ctx.globalAlpha=j===0?.31:.62;ctx.stroke()}ctx.restore();
- ctx.save();ctx.translate(1600,900);ctx.rotate(Math.PI);for(let j=0;j<3;j++){ctx.beginPath();ctx.moveTo(-70,155-j*17);ctx.bezierCurveTo(90,65-j*10,190,-25-j*8,350,-80-j*7);ctx.strokeStyle=foil;ctx.lineWidth=j===0?7:2;ctx.globalAlpha=j===0?.30:.58;ctx.stroke()}ctx.restore();
- // Subtle foil card outlines in the corners; these are decorative, not product photos.
- ctx.save();ctx.translate(1510,38);ctx.rotate(-.30);rounded(ctx,-10,-135,260,235,22);ctx.strokeStyle='rgba(206,208,230,.21)';ctx.lineWidth=4;ctx.stroke();rounded(ctx,9,-113,260,235,22);ctx.strokeStyle='rgba(146,211,251,.24)';ctx.stroke();ctx.restore();
- if(logo){ctx.drawImage(logo,720,4,160,81)}else line(ctx,'soul',800,81,{size:56,weight:800,align:'center'});
- line(ctx,'STREAM SUMMARY',800,155,{size:42,weight:700,align:'center',color:'#f5f5f8'});
- const dateLabel=data.start===data.end?shortDate(data.start):`${shortDate(data.start)} — ${shortDate(data.end)}`;
- line(ctx,dateLabel,800,188,{size:25,align:'center',color:'#b6bccd'});
- const metrics=[{label:'GROSS SALES',value:compactMoney(data.total),sub:'Product sales subtotal'},{label:'ESTIMATED PROFIT',value:data.profitEstimate?.profit==null?'Unavailable':compactMoney(data.profitEstimate.profit),sub:data.profitEstimate?.partial?'Partial — costs missing':'6% fee + saved COGS'},{label:'UNITS SOLD',value:String(data.unitsSold),sub:'Eligible imported items'},{label:'ORDERS',value:String(data.paidOrders),sub:'Counted orders'}];
- const x0=73,gap=20,w=(1454-gap*3)/4,y=223,h=221;
- metrics.forEach((m,i)=>{const x=x0+i*(w+gap);slab(ctx,x,y,w,h,26);ctx.save();ctx.shadowColor=i%2?'rgba(188,142,255,.32)':'rgba(108,211,255,.29)';ctx.shadowBlur=14;ctx.beginPath();ctx.moveTo(x+26,y+1);ctx.lineTo(x+w-26,y+1);ctx.strokeStyle=i%2?'#c5adff':'#a6dfff';ctx.lineWidth=1.6;ctx.stroke();ctx.restore();
- // Icon and label form a left-aligned stack; the amount stays centered below with clear separation.
- icon(ctx,(['sales','profit','units','orders'] as const)[i],x+26,y+22,.68);
- line(ctx,m.label,x+26,y+77,{size:19,weight:700,color:'#e4e6ef',align:'left'});
- const valueSize=shrink(ctx,m.value,w-46,m.value.length>11?47:62,25);
- line(ctx,m.value,x+w/2,y+159,{size:valueSize,weight:700,align:'center'});
- line(ctx,m.sub,x+w/2,y+207,{size:16,color:'#a7aebe',align:'center'});
+ const bg=ctx.createLinearGradient(0,0,W,H);bg.addColorStop(0,'#090A10');bg.addColorStop(.56,'#090A12');bg.addColorStop(1,'#10111B');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+ glow(ctx,1450,50,600,theme.color,.27);glow(ctx,40,800,600,theme.soft,.15);glow(ctx,1600,840,420,theme.soft,.13);
+ // A subtle editorial texture, not decorative frames or glossy card borders.
+ ctx.strokeStyle='rgba(255,255,255,.027)';ctx.lineWidth=1;for(let i=0;i<7;i++){ctx.beginPath();ctx.moveTo(1100+i*65,0);ctx.lineTo(870+i*65,900);ctx.stroke()}
+ if(logo){const aspect=logo.width/logo.height;const w=243,h=w/aspect;ctx.drawImage(logo,78,55,w,h)}else txt(ctx,'SOUL ANALYTICS',82,108,29);
+ const range=data.start===data.end?date(data.start):`${date(data.start)} — ${date(data.end)}`;
+ txt(ctx,range,1514,98,24,'#AEB3C0',500,'right');
+ txt(ctx,'Stream Summary',80,259,78,'#F9FAFB',750);
+ const metrics=[
+  {label:'GROSS SALES',value:usd(data.total)},
+  {label:'EST. PROFIT',value:data.profitEstimate?.profit==null?'—':usd(data.profitEstimate.profit)},
+  {label:'ORDERS',value:String(data.paidOrders)},
+  {label:'UNITS SOLD',value:String(data.unitsSold)}
+ ];
+ const positions=[80,474,868,1210];const rightBound=[437,831,1172,1510];
+ metrics.forEach((m,i)=>{const x=positions[i];if(i>0){ctx.strokeStyle='rgba(200,205,225,.32)';ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(x-34,331);ctx.lineTo(x-34,456);ctx.stroke()}
+ txt(ctx,m.label,x,357,21,'#BFC3CE',600);let s=61;ctx.font=`700 ${s}px Inter, Arial, sans-serif`;while(ctx.measureText(m.value).width>(rightBound[i]-x-8)&&s>34){s-=2;ctx.font=`700 ${s}px Inter, Arial, sans-serif`}
+ txt(ctx,m.value,x,430,s,i===1?theme.color:'#F9FAFC',750);
  });
- // Top-three profitability is by dollar profit for SKUs with complete costs.
- slab(ctx,73,472,1454,352,29);
- line(ctx,'TOP 3 PROFIT ITEMS',111,532,{size:29,weight:700,color:'#f6f6fa'});
- const rows=data.topProfitItems||[];
+ txt(ctx,'Top 3 Profit Items',80,551,41,'#F6F7FB',700);
+ const items=data.topProfitItems||[];
  for(let i=0;i<3;i++){
-  const item=rows[i];const rowY=551+i*83;
-  if(i>0){ctx.strokeStyle='rgba(185,190,204,.19)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(112,rowY-6);ctx.lineTo(1484,rowY-6);ctx.stroke()}
-  if(!item){if(i===0)line(ctx,'No products with complete sales and COGS for this date range',112,650,{size:26,color:'#aeb7c8'});break}
-  line(ctx,String(i+1),135,rowY+49,{size:28,weight:700,color:'#f6f6fa',align:'center'});
-  const img=productImages[i];rounded(ctx,184,rowY+2,78,69,12);ctx.save();ctx.clip();ctx.fillStyle='#2b2d35';ctx.fill();if(img){const ratio=Math.min(78/img.width,69/img.height);const dw=img.width*ratio,dh=img.height*ratio;ctx.drawImage(img,184+(78-dw)/2,rowY+2+(69-dh)/2,dw,dh)}ctx.restore();
-  const safeName=clippedText(ctx,item.name||'Unnamed product',900,25,19);
-  line(ctx,safeName.text,289,rowY+31,{size:safeName.size,weight:600});
-  line(ctx,`${item.quantity.toLocaleString()} UNITS SOLD`,289,rowY+61,{size:17,color:'#aeb5c6'});
-  line(ctx,usd(item.profit),1473,rowY+36,{size:33,weight:700,align:'right'});
-  line(ctx,'EST. PROFIT',1473,rowY+61,{size:15,color:'#a7b0c4',align:'right'});
+  const y=586+i*82; if(i){ctx.strokeStyle='rgba(195,201,220,.18)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(80,y-13);ctx.lineTo(1520,y-13);ctx.stroke()}
+  const p=items[i];if(!p){if(!i)txt(ctx,'No products with complete costs for this period',80,640,23,'#9DA4B4');break}
+  txt(ctx,String(i+1),89,y+46,24,'#B1B7C4',600);
+  const img=images[i];const ix=148,iy=y,box=66;ctx.fillStyle='#222631';ctx.beginPath();ctx.roundRect(ix,iy,box,box,12);ctx.fill();
+  if(img){ctx.save();ctx.beginPath();ctx.roundRect(ix,iy,box,box,12);ctx.clip();const scale=Math.min(box/img.width,box/img.height);const w=img.width*scale,h=img.height*scale;ctx.drawImage(img,ix+(box-w)/2,iy+(box-h)/2,w,h);ctx.restore()}
+  txt(ctx,fit(ctx,p.name,1020,25),238,y+28,25,'#F4F5F8',600);
+  txt(ctx,`${p.quantity.toLocaleString('en-US')} units sold`,238,y+57,20,'#A9B0BE');
+  txt(ctx,usd(p.profit),1515,y+40,32,'#F7F8FA',700,'right');
  }
- line(ctx,'SOUL ANALYTICS',73,873,{size:18,weight:700,color:'#b7bfd0'});
- line(ctx,'SKU estimates exclude shipping allocation · Overall profit may be partial',1527,873,{size:15,align:'right',color:'#a0a8b8'});
+ txt(ctx,'SOUL ANALYTICS',80,861,18,'#9A9FAC',600);
+ if(data.profitEstimate?.partial)txt(ctx,'Estimated profit · Some costs unavailable',1515,862,17,'#9298A7',400,'right');
+ else txt(ctx,'Estimated profit before product-level shipping allocation',1515,862,17,'#9298A7',400,'right');
 }
 export default function StreamSummaryCard({data,loading,onClose}:{data:CardData|null;loading:boolean;onClose:()=>void}){
- const canvasRef=useRef<HTMLCanvasElement|null>(null);
- const [ready,setReady]=useState(false);const [error,setError]=useState('');
- useEffect(()=>{let active=true;setReady(false);if(!data)return;const c=canvasRef.current;if(!c)return;const ctx=c.getContext('2d');if(!ctx)return;
- const load=(src:string,cross=false)=>new Promise<HTMLImageElement|null>(resolve=>{const img=new Image();if(cross)img.crossOrigin='anonymous';img.onload=()=>resolve(img);img.onerror=()=>resolve(null);img.src=src;});
- (async()=>{const [logo,...productImages]=await Promise.all([load('/soul-wordmark-transparent.png'),...(data.topProfitItems||[]).slice(0,3).map(item=>item.image?load(item.image,true):Promise.resolve(null))]);if(!active)return;try{drawCard(ctx,data,logo,productImages);setReady(true);setError('')}catch(e){setError('Could not render summary card.');}})();return()=>{active=false};},[data]);
- async function download(){const canvas=canvasRef.current;if(!canvas||!ready||!data)return;canvas.toBlob(blob=>{if(!blob){setError('Unable to export PNG.');return;}const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`soul-summary-${data.start}${data.start===data.end?'':`-to-${data.end}`}.png`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000)},'image/png')}
+ const canvasRef=useRef<HTMLCanvasElement|null>(null);const [ready,setReady]=useState(false);const [error,setError]=useState('');
+ const [themeId,setThemeId]=useState('iris');const [custom,setCustom]=useState<string|null>(null);
+ useEffect(()=>{try{const saved=localStorage.getItem('soul-summary-theme');if(saved){const v=JSON.parse(saved);if(typeof v.id==='string'&&(v.id==='custom'||THEMES.some(t=>t.id===v.id)))setThemeId(v.id);if(typeof v.custom==='string'&&/^#[\da-f]{6}$/i.test(v.custom))setCustom(v.custom)}}catch{}},[]);
+ useEffect(()=>{try{localStorage.setItem('soul-summary-theme',JSON.stringify({id:themeId,custom}))}catch{}},[themeId,custom]);
+ const theme=themeId==='custom'&&custom?{id:'custom',label:'Custom',color:custom,soft:custom}:THEMES.find(t=>t.id===themeId)||THEMES[0];
+ useEffect(()=>{let active=true;setReady(false);if(!data)return;const canvas=canvasRef.current,ctx=canvas?.getContext('2d');if(!ctx)return;
+ const load=(src:string,cross=false)=>new Promise<HTMLImageElement|null>(resolve=>{const img=new Image();if(cross)img.crossOrigin='anonymous';img.onload=()=>resolve(img);img.onerror=()=>resolve(null);img.src=src});
+ (async()=>{const [logo,...images]=await Promise.all([load('/soul-wordmark-transparent.png'),...(data.topProfitItems||[]).slice(0,3).map(p=>p.image?load(p.image,true):Promise.resolve(null))]);try{await Promise.all([document.fonts.load('700 78px Inter'),document.fonts.load('600 25px Inter')])}catch{}if(!active)return;try{draw(ctx,data,theme,logo,images);setReady(true);setError('')}catch{setError('Could not render summary image.')}})();return()=>{active=false}},[data,themeId,custom]);
+ function download(){const c=canvasRef.current;if(!c||!ready||!data)return;try{c.toBlob(blob=>{if(!blob){setError('Unable to export PNG.');return}const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`soul-summary-${data.start}${data.start===data.end?'':`-to-${data.end}`}.png`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000)},'image/png')}catch{setError('Image export failed. Check product image permissions.')}}
  return <div className="shareModalBackdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
-  <section className="shareModal" role="dialog" aria-modal="true" aria-labelledby="shareModalTitle">
-   <div className="shareModalHeader">
-    <div><h2 id="shareModalTitle">Share PNL</h2><p>Export a summary for your selected dates</p></div>
-    <button type="button" className="shareModalClose" onClick={onClose} aria-label="Close summary">×</button>
+ <section className="shareModal" role="dialog" aria-modal="true" aria-labelledby="shareModalTitle">
+  <div className="shareModalHeader"><div><h2 id="shareModalTitle">Share PNL</h2><p>Choose a Soul theme, then download your summary</p></div><button type="button" className="shareModalClose" onClick={onClose} aria-label="Close summary">×</button></div>
+  <div className="shareModalImage"><canvas ref={canvasRef} width={1600} height={900} role="img" aria-label="Stream Summary image preview"/></div>
+  <div style={{padding:'14px 2px 5px'}}><div style={{fontSize:11,fontWeight:700,letterSpacing:'1.3px',opacity:.72,marginBottom:10}}>TEMPLATE THEME</div>
+   <div style={{display:'flex',gap:9,flexWrap:'wrap'}}>
+    {THEMES.map(t=><button key={t.id} type="button" aria-pressed={themeId===t.id} onClick={()=>setThemeId(t.id)} style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',borderRadius:10,border:themeId===t.id?`1px solid ${t.color}`:'1px solid rgba(155,160,175,.24)',background:themeId===t.id?rgba(t.color,.12):'rgba(130,140,165,.05)',color:'inherit',fontSize:12,fontWeight:600,cursor:'pointer'}}><span style={{display:'inline-block',width:14,height:14,borderRadius:'50%',background:t.color,boxShadow:themeId===t.id?`0 0 10px ${rgba(t.color,.5)}`:'none'}}/>{t.label}</button>)}
+    <label style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',borderRadius:10,border:themeId==='custom'?'1px solid #B7B9C6':'1px solid rgba(155,160,175,.24)',fontSize:12,fontWeight:600,cursor:'pointer'}}>Custom <input aria-label="Choose a custom accent color" type="color" value={custom||'#A98AFF'} onChange={e=>{setCustom(e.target.value);setThemeId('custom')}} style={{width:28,height:25,padding:0,border:0,background:'transparent',cursor:'pointer'}}/></label>
    </div>
-   <div className="shareModalImage"><canvas ref={canvasRef} width={1600} height={900} role="img" aria-label="Soul Stream Summary preview" /></div>
-   {error&&<p className="msg" role="alert">{error}</p>}
-   <div className="shareModalFooter"><span>Estimated profit · not final accounting profit</span><div className="shareModalActions"><button className="outlineBtn" onClick={onClose}>Close</button><button className="sharePnlBtn" onClick={download} disabled={!ready||loading||!data}>{!ready?'Preparing…':'↓ Download PNG'}</button></div></div>
-  </section>
- </div>;
+  </div>
+  {error&&<p className="msg" role="alert">{error}</p>}
+  <div className="shareModalFooter"><span>Accent colors affect the exported card only.</span><div className="shareModalActions"><button className="outlineBtn" onClick={onClose}>Close</button><button className="sharePnlBtn" onClick={download} disabled={!ready||loading||!data}>{!ready?'Preparing…':'↓ Download PNG'}</button></div></div>
+ </section></div>
 }
