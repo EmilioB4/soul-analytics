@@ -22,7 +22,7 @@ export async function GET(req:NextRequest){
   const lotSkus=new Set((lots||[]).map(l=>`${l.shop_id}:${l.sku_id}`));
   const orders=new Map((ordersResult.data||[]).map(o=>[`${o.shop_id}:${o.order_id}`,o]));
   const finances=new Map((finResult.data||[]).map(f=>[`${f.shop_id}:${f.order_id}`,f]));
-  type OrderDetail={orderId:string;date:string|null;status:string;quantity:number;unitPrice:number|null;subtotal:number|null;currency:string};
+  type OrderDetail={orderId:string;date:string|null;status:string;quantity:number;unitPrice:number|null;subtotal:number|null;currency:string;allocatedCogs:number|null;estimatedProfit:number|null;costMethod:'FIFO'|'Fixed'|'Missing'};
   type Prod={shopId:string;skuId:string;name:string;variant:string;image:string|null;quantity:number;sales:number|null;unitCost:number|null;currency:string;estimatedProfit:number|null;estimatedFee:number|null;totalCogs:number|null;avgPrice:number|null;orders:OrderDetail[]};
   const products=new Map<string,Prod>();
   const orderCosts=new Map<string,{value:number;complete:boolean}>();
@@ -34,7 +34,7 @@ export async function GET(req:NextRequest){
    const unitCost=lotSkus.has(key)?null:(costs.get(`${line.shop_id}::${line.sku_id}`)??null);const rowCost=fifo.allocations.get(lineKey(line))?.cost??null;
    const unitPrice=line.unit_sale_price==null?null:Number(line.unit_sale_price);
    const p:Prod=products.get(key)||{shopId:line.shop_id,skuId:line.sku_id,name:line.product_name,variant:line.sku_name||'',image:line.sku_image||null,quantity:0,sales:0,unitCost,currency:line.currency,estimatedProfit:null,estimatedFee:null,totalCogs:null,avgPrice:null,orders:[]};
-   p.orders.push({orderId:String(line.order_id),date:ok.created_at??null,status:String(ok.status||'UNKNOWN'),quantity:count,unitPrice:unitPrice===null||!Number.isFinite(unitPrice)?null:money(unitPrice),subtotal:unitPrice===null||!Number.isFinite(unitPrice)?null:money(count*unitPrice),currency:String(line.currency||'')});
+   p.orders.push({orderId:String(line.order_id),date:ok.created_at??null,status:String(ok.status||'UNKNOWN'),quantity:count,unitPrice:unitPrice===null||!Number.isFinite(unitPrice)?null:money(unitPrice),subtotal:unitPrice===null||!Number.isFinite(unitPrice)?null:money(count*unitPrice),currency:String(line.currency||''),allocatedCogs:rowCost,estimatedProfit:unitPrice!==null&&Number.isFinite(unitPrice)&&rowCost!==null&&String(line.currency)==='USD'?money(count*unitPrice*0.94-rowCost):null,costMethod:fifo.allocations.get(lineKey(line))?.method||'Missing'});
    p.quantity+=count;
    if(unitPrice==null||p.sales==null)p.sales=null;else p.sales+=count*unitPrice;
    if(!p.image&&line.sku_image)p.image=line.sku_image;
