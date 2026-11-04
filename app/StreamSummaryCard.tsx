@@ -53,18 +53,19 @@ function drawCard(ctx:CanvasRenderingContext2D,data:CardData,logo:HTMLImageEleme
  ctx.save();ctx.translate(1600,900);ctx.rotate(Math.PI);for(let j=0;j<3;j++){ctx.beginPath();ctx.moveTo(-70,155-j*17);ctx.bezierCurveTo(90,65-j*10,190,-25-j*8,350,-80-j*7);ctx.strokeStyle=foil;ctx.lineWidth=j===0?7:2;ctx.globalAlpha=j===0?.30:.58;ctx.stroke()}ctx.restore();
  // Subtle foil card outlines in the corners; these are decorative, not product photos.
  ctx.save();ctx.translate(1510,38);ctx.rotate(-.30);rounded(ctx,-10,-135,260,235,22);ctx.strokeStyle='rgba(206,208,230,.21)';ctx.lineWidth=4;ctx.stroke();rounded(ctx,9,-113,260,235,22);ctx.strokeStyle='rgba(146,211,251,.24)';ctx.stroke();ctx.restore();
- if(logo){ctx.drawImage(logo,700,7,200,101)}else line(ctx,'soul',800,91,{size:66,weight:800,align:'center'});
- line(ctx,'STREAM SUMMARY',800,147,{size:42,weight:700,align:'center',color:'#f5f5f8'});
+ if(logo){ctx.drawImage(logo,720,4,160,81)}else line(ctx,'soul',800,81,{size:56,weight:800,align:'center'});
+ line(ctx,'STREAM SUMMARY',800,155,{size:42,weight:700,align:'center',color:'#f5f5f8'});
  const dateLabel=data.start===data.end?shortDate(data.start):`${shortDate(data.start)} — ${shortDate(data.end)}`;
  line(ctx,dateLabel,800,188,{size:25,align:'center',color:'#b6bccd'});
  const metrics=[{label:'GROSS SALES',value:compactMoney(data.total),sub:'Product sales subtotal'},{label:'ESTIMATED PROFIT',value:data.profitEstimate?.profit==null?'Unavailable':compactMoney(data.profitEstimate.profit),sub:data.profitEstimate?.partial?'Partial — costs missing':'6% fee + saved COGS'},{label:'UNITS SOLD',value:String(data.unitsSold),sub:'Eligible imported items'},{label:'ORDERS',value:String(data.paidOrders),sub:'Counted orders'}];
  const x0=73,gap=20,w=(1454-gap*3)/4,y=223,h=221;
  metrics.forEach((m,i)=>{const x=x0+i*(w+gap);slab(ctx,x,y,w,h,26);ctx.save();ctx.shadowColor=i%2?'rgba(188,142,255,.32)':'rgba(108,211,255,.29)';ctx.shadowBlur=14;ctx.beginPath();ctx.moveTo(x+26,y+1);ctx.lineTo(x+w-26,y+1);ctx.strokeStyle=i%2?'#c5adff':'#a6dfff';ctx.lineWidth=1.6;ctx.stroke();ctx.restore();
- icon(ctx,(['sales','profit','units','orders'] as const)[i],x+25,y+19);
- line(ctx,m.label,x+87,y+55,{size:19,weight:700,color:'#e4e6ef'});
+ // Center the icon above the metric name and its numeric value.
+ icon(ctx,(['sales','profit','units','orders'] as const)[i],x+w/2-21,y+14);
+ line(ctx,m.label,x+w/2,y+91,{size:19,weight:700,color:'#e4e6ef',align:'center'});
  const valueSize=shrink(ctx,m.value,w-46,m.value.length>11?47:62,25);
- line(ctx,m.value,x+24,y+134,{size:valueSize,weight:700});
- line(ctx,m.sub,x+24,y+186,{size:16,color:'#a7aebe'});
+ line(ctx,m.value,x+w/2,y+157,{size:valueSize,weight:700,align:'center'});
+ line(ctx,m.sub,x+w/2,y+202,{size:16,color:'#a7aebe',align:'center'});
  });
  // Top-three profitability is by dollar profit for SKUs with complete costs.
  slab(ctx,73,472,1454,352,29);
