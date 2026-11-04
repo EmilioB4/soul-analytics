@@ -1,10 +1,7 @@
-Soul Analytics — Metric Card Spacing Fix
+Soul Analytics — spacing-only adjustment
 
-Only file: app/StreamSummaryCard.tsx
+Replace exactly app/StreamSummaryCard.tsx at the repository root.
 
-- Metric icon remains small in the upper-left of each card.
-- Metric label now sits left-aligned directly beneath its icon.
-- Large value remains centered, with increased vertical space between label and value.
-- Nothing else has been modified.
+Change: labels (Gross Sales, Estimated Profit, Units Sold, Orders) move 29 pixels upward, directly under the upper-left icons, adding breathing room above the centered large numbers.
 
-To deploy: Upload the app folder into the GitHub repository root (not nested), commit, and check the newest Vercel deployment.
+No other code, calculations, cards, or design elements changed.

@@ -62,7 +62,7 @@ function drawCard(ctx:CanvasRenderingContext2D,data:CardData,logo:HTMLImageEleme
  metrics.forEach((m,i)=>{const x=x0+i*(w+gap);slab(ctx,x,y,w,h,26);ctx.save();ctx.shadowColor=i%2?'rgba(188,142,255,.32)':'rgba(108,211,255,.29)';ctx.shadowBlur=14;ctx.beginPath();ctx.moveTo(x+26,y+1);ctx.lineTo(x+w-26,y+1);ctx.strokeStyle=i%2?'#c5adff':'#a6dfff';ctx.lineWidth=1.6;ctx.stroke();ctx.restore();
  // Icon and label form a left-aligned stack; the amount stays centered below with clear separation.
  icon(ctx,(['sales','profit','units','orders'] as const)[i],x+26,y+22,.68);
- line(ctx,m.label,x+26,y+106,{size:19,weight:700,color:'#e4e6ef',align:'left'});
+ line(ctx,m.label,x+26,y+77,{size:19,weight:700,color:'#e4e6ef',align:'left'});
  const valueSize=shrink(ctx,m.value,w-46,m.value.length>11?47:62,25);
  line(ctx,m.value,x+w/2,y+177,{size:valueSize,weight:700,align:'center'});
  line(ctx,m.sub,x+w/2,y+207,{size:16,color:'#a7aebe',align:'center'});
