@@ -10,8 +10,8 @@ function shrink(ctx:CanvasRenderingContext2D,value:string,max:number,initial:num
 function line(ctx:CanvasRenderingContext2D,text:string,x:number,y:number,opts:{size?:number;color?:string;weight?:number;align?:CanvasTextAlign;maxWidth?:number}={}){const {size=32,color='#f7f7f9',weight=500,align='left',maxWidth}=opts;ctx.font=`${weight} ${size}px Arial, Helvetica, sans-serif`;ctx.fillStyle=color;ctx.textAlign=align;ctx.fillText(text,x,y,maxWidth)}
 function glow(ctx:CanvasRenderingContext2D,x:number,y:number,color:string,radius:number){const g=ctx.createRadialGradient(x,y,0,x,y,radius);g.addColorStop(0,color);g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.fillRect(x-radius,y-radius,radius*2,radius*2)}
 // Draw all decorative shapes and icons with Canvas paths so PNG exports never depend on an icon font.
-function icon(ctx:CanvasRenderingContext2D,kind:'sales'|'profit'|'units'|'orders',x:number,y:number){
- ctx.save();ctx.translate(x,y);ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#c8d8ee';
+function icon(ctx:CanvasRenderingContext2D,kind:'sales'|'profit'|'units'|'orders',x:number,y:number,scale=1){
+ ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#c8d8ee';
  if(kind==='sales'){
   for(const [cx,cy] of [[12,30],[12,22],[28,26],[28,18],[28,10]]){ctx.beginPath();ctx.ellipse(cx,cy,9,4,0,0,Math.PI*2);ctx.stroke()}
   ctx.beginPath();ctx.moveTo(3,22);ctx.lineTo(3,30);ctx.bezierCurveTo(3,36,21,36,21,30);ctx.moveTo(19,10);ctx.lineTo(19,26);ctx.moveTo(37,10);ctx.lineTo(37,26);ctx.stroke();
@@ -60,8 +60,8 @@ function drawCard(ctx:CanvasRenderingContext2D,data:CardData,logo:HTMLImageEleme
  const metrics=[{label:'GROSS SALES',value:compactMoney(data.total),sub:'Product sales subtotal'},{label:'ESTIMATED PROFIT',value:data.profitEstimate?.profit==null?'Unavailable':compactMoney(data.profitEstimate.profit),sub:data.profitEstimate?.partial?'Partial — costs missing':'6% fee + saved COGS'},{label:'UNITS SOLD',value:String(data.unitsSold),sub:'Eligible imported items'},{label:'ORDERS',value:String(data.paidOrders),sub:'Counted orders'}];
  const x0=73,gap=20,w=(1454-gap*3)/4,y=223,h=221;
  metrics.forEach((m,i)=>{const x=x0+i*(w+gap);slab(ctx,x,y,w,h,26);ctx.save();ctx.shadowColor=i%2?'rgba(188,142,255,.32)':'rgba(108,211,255,.29)';ctx.shadowBlur=14;ctx.beginPath();ctx.moveTo(x+26,y+1);ctx.lineTo(x+w-26,y+1);ctx.strokeStyle=i%2?'#c5adff':'#a6dfff';ctx.lineWidth=1.6;ctx.stroke();ctx.restore();
- // Center the icon above the metric name and its numeric value.
- icon(ctx,(['sales','profit','units','orders'] as const)[i],x+w/2-21,y+14);
+ // Small, left-aligned icon; all typography and other card styling unchanged.
+ icon(ctx,(['sales','profit','units','orders'] as const)[i],x+26,y+25,.68);
  line(ctx,m.label,x+w/2,y+91,{size:19,weight:700,color:'#e4e6ef',align:'center'});
  const valueSize=shrink(ctx,m.value,w-46,m.value.length>11?47:62,25);
  line(ctx,m.value,x+w/2,y+157,{size:valueSize,weight:700,align:'center'});
