@@ -9,7 +9,7 @@ const money=(amount:number)=>new Intl.NumberFormat('en-US',{style:'currency',cur
 const roundUp=(number:number)=>Math.ceil((number-0.00000001)*100)/100;
 const styles={panel:{background:'var(--surface, #151820)',border:'1px solid var(--border, #31343c)',borderRadius:16,padding:20} as CSSProperties,secondary:{color:'var(--muted, #a7a9b4)'} as CSSProperties};
 export default function AuctionAnalytics({products}:Props){
- const [open,setOpen]=useState(false),[query,setQuery]=useState(''),[productId,setProductId]=useState('');
+ const [open,setOpen]=useState(false),[query,setQuery]=useState(''),[productId,setProductId]=useState(''),[selectorOpen,setSelectorOpen]=useState(false);
  const [costOverride,setCostOverride]=useState<string|null>(null),[shipping,setShipping]=useState('0'),[targetMargin,setTargetMargin]=useState(20);
  const available=useMemo(()=>products.filter(p=>p.currency==='USD'&&p.orders.length>0),[products]);
  const visible=available.filter(p=>(p.name+' '+p.variant+' '+p.skuId).toLowerCase().includes(query.toLowerCase())).slice(0,40);
@@ -31,11 +31,30 @@ export default function AuctionAnalytics({products}:Props){
  const breakEven=validCost&&validShipping?(Number(enteredCost)+Number(shipping))/0.94:null;
  const target=validCost&&validShipping?(Number(enteredCost)+Number(shipping))/(0.94-targetMargin/100):null;
  const overall=complete.reduce((n,o)=>n+Number(o.estimatedProfit),0);
- return <section style={{marginTop:22}}>
+ return <section style={{marginTop:22,minWidth:0,maxWidth:'100%'}}>
  <button type="button" className="outlineBtn" onClick={()=>setOpen(v=>!v)} aria-expanded={open} aria-controls="soul-auction-analytics" style={{width:'100%',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'16px 20px',fontWeight:700}}><span>Sale Price &amp; Auction Analytics <span style={{...styles.secondary,fontSize:12,fontWeight:400,marginLeft:8}}>Compare your selling prices and estimated margins</span></span><span aria-hidden="true">{open?'−':'+'}</span></button>
- {open&&<div id="soul-auction-analytics" style={{...styles.panel,marginTop:12}}>
+ {open&&<div id="soul-auction-analytics" style={{...styles.panel,marginTop:12,minWidth:0,maxWidth:'100%',boxSizing:'border-box'}}>
  <div style={{marginBottom:18}}><h3 style={{margin:'0 0 5px'}}>Product performance</h3><p style={{...styles.secondary,margin:0,fontSize:13}}>Uses imported sales, FIFO or saved COGS, and the assumed 6% TikTok fee. Auction versus fixed-price sales cannot yet be distinguished.</p></div>
- <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:12,marginBottom:16}}><label style={{display:'grid',gap:6,fontSize:13,fontWeight:600}}>Search products<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search product or SKU" style={{padding:11,borderRadius:9,border:'1px solid var(--border, #43434a)',background:'var(--surface, #171920)',color:'inherit'}}/></label><label style={{display:'grid',gap:6,fontSize:13,fontWeight:600}}>Product<select value={id} onChange={e=>setProductId(e.target.value)} style={{padding:11,borderRadius:9,border:'1px solid var(--border, #43434a)',background:'var(--surface, #171920)',color:'inherit'}}>{product&& !visible.some(p=>`${p.shopId}::${p.skuId}`===id)&&<option value={id}>{product.name} — current selection</option>}{visible.map(p=><option key={`${p.shopId}::${p.skuId}`} value={`${p.shopId}::${p.skuId}`}>{p.name} {p.variant?'· '+p.variant:''}</option>)}</select></label></div>
+ <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,300px),1fr))',gap:12,marginBottom:16,minWidth:0}}>
+  <label style={{display:'grid',gap:6,fontSize:13,fontWeight:600,minWidth:0}}>Search products
+   <input value={query} onChange={e=>{setQuery(e.target.value);setSelectorOpen(true)}} placeholder="Search product or SKU" style={{padding:11,width:'100%',minWidth:0,boxSizing:'border-box',borderRadius:9,border:'1px solid var(--border, #43434a)',background:'var(--surface, #171920)',color:'inherit'}}/>
+  </label>
+  <div style={{display:'grid',gap:6,minWidth:0,position:'relative'}}>
+   <span style={{fontSize:13,fontWeight:600}}>Product</span>
+   <button type="button" aria-label="Choose a product" aria-expanded={selectorOpen} aria-haspopup="listbox" onClick={()=>setSelectorOpen(v=>!v)} style={{display:'flex',alignItems:'center',gap:10,width:'100%',minWidth:0,maxWidth:'100%',boxSizing:'border-box',padding:'7px 10px',height:48,borderRadius:9,border:'1px solid var(--border, #43434a)',background:'var(--surface, #171920)',color:'inherit',textAlign:'left',cursor:'pointer'}}>
+    {product?.image?<img src={product.image} alt="" loading="lazy" referrerPolicy="no-referrer" style={{width:32,height:32,flexShrink:0,objectFit:'contain',borderRadius:6,background:'#fff'}}/>:<span style={{width:32,height:32,flexShrink:0,display:'grid',placeItems:'center',borderRadius:6,background:'var(--card, #232635)'}}>◈</span>}
+    <span style={{display:'block',flex:'1 1 0',minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:13,fontWeight:600}}>{product?.name||'Select a product'}</span>
+    <span aria-hidden="true" style={{flexShrink:0,opacity:.7,fontSize:13}}>{selectorOpen?'▴':'▾'}</span>
+   </button>
+   {selectorOpen&&<div role="listbox" aria-label="Products" style={{position:'absolute',top:'100%',left:0,right:0,marginTop:6,zIndex:40,boxSizing:'border-box',maxHeight:280,overflowY:'auto',overflowX:'hidden',border:'1px solid var(--border, #43434a)',borderRadius:10,background:'var(--surface, #171920)',boxShadow:'0 16px 38px rgba(0,0,0,.38)'}}>
+    {visible.length===0?<div style={{padding:13,...styles.secondary,fontSize:13}}>No matching products.</div>:visible.map(p=>{const selected=`${p.shopId}::${p.skuId}`===id;return <button key={`${p.shopId}::${p.skuId}`} type="button" role="option" aria-selected={selected} onClick={()=>{setProductId(`${p.shopId}::${p.skuId}`);setSelectorOpen(false)}} style={{display:'flex',alignItems:'center',gap:10,width:'100%',minWidth:0,boxSizing:'border-box',border:0,borderBottom:'1px solid var(--border, #31343c)',background:selected?'var(--card, #242936)':'transparent',color:'inherit',textAlign:'left',padding:'9px 11px',cursor:'pointer'}}>
+     {p.image?<img src={p.image} alt="" loading="lazy" referrerPolicy="no-referrer" style={{width:39,height:39,objectFit:'contain',flexShrink:0,borderRadius:7,background:'#fff'}}/>:<span style={{width:39,height:39,flexShrink:0,display:'grid',placeItems:'center',borderRadius:7,background:'var(--card, #242936)'}}>◈</span>}
+     <span style={{flex:'1 1 0',minWidth:0,display:'grid',gap:3}}><span style={{fontSize:12,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={p.name}>{p.name}</span><span style={{...styles.secondary,fontSize:11,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.variant||p.skuId}</span></span>
+     {selected&&<span aria-hidden="true" style={{flexShrink:0,color:'#8acdec'}}>✓</span>}
+    </button>})}
+   </div>}
+  </div>
+ </div>
  {!product?<p style={styles.secondary}>Import orders to analyze selling prices.</p>:<>
  <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:17}}>{product.image&&<img src={product.image} alt="" loading="lazy" referrerPolicy="no-referrer" style={{width:55,height:55,objectFit:'contain',borderRadius:9,background:'#fff'}}/>}<div><strong>{product.name}</strong><div style={{...styles.secondary,fontSize:12}}>{product.variant||product.skuId}</div></div></div>
  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:10,marginBottom:22}}>{[{label:'Average sold price',value:units?money(total/units):'—'},{label:'Highest unit price',value:sales.length?money(Math.max(...sales.filter(s=>s.unitPrice!==null).map(s=>Number(s.unitPrice)))):'—'},{label:'Lowest unit price',value:sales.some(s=>s.unitPrice!==null)?money(Math.min(...sales.filter(s=>s.unitPrice!==null).map(s=>Number(s.unitPrice)))):'—'},{label:'Est. profit on priced sales',value:complete.length?money(overall):'—'},{label:'Profitable sale lines',value:`${profitable.length} / ${complete.length}`},{label:'Losing sale lines',value:`${losing.length} / ${complete.length}`}].map(x=><div key={x.label} style={{background:'var(--card, #1b1f2a)',border:'1px solid var(--border, #333743)',borderRadius:12,padding:14}}><small style={styles.secondary}>{x.label}</small><div style={{fontSize:20,fontWeight:700,marginTop:7,fontVariantNumeric:'tabular-nums'}}>{x.value}</div></div>)}</div>
