@@ -1,22 +1,25 @@
-SOUL ANALYTICS — FIFO PURCHASE BATCHES + PAYOUT ESTIMATES
+SOUL ANALYTICS — PAYOUTS TAB
 
-WHAT THIS PATCH ADDS
-- Products & COGS: Manage purchase batches with acquisition date, unit cost and quantity; edit/delete. FIFO applies oldest eligible inventory first across imported order dates. SKU without purchase batches continues using its saved fixed unit cost. If units are missing or dated after a sale, those units have unknown COGS; affected profit is partial.
-- Stream Summary section: expected payout and summed imported order settlements for selected dates. Not part of PNG image; existing card design remains unchanged.
-- Expected payout = counted product sales subtotal - 6% assumed TikTok fee - any imported net seller shipping charges for covered orders. Does not subtract COGS, because purchase costs aren't deducted from TikTok's payout. Excludes refunds, affiliate commissions, reserves, subsidies, separately billed charges. Missing shipping is flagged.
-- Imported order settlements = sum of settlement_amount values for selected creation-date orders that have finance records; NOT confirmed bank transfers.
-- Actual deposited payout requires TikTok payment/payout records. It is shown as 'Not connected' rather than inventing a number. One selected date range can include several livestreams.
+Adds a Payouts tab in the sidebar with existing daily, weekly, monthly, YTD, and custom date-range filters.
+Uses the finance data already supported by the latest FIFO + Payout update.
 
-INSTALL IN ORDER
-1. BACK UP your current GitHub main branch (Code > Download ZIP).
-2. Supabase SQL Editor > New snippet. Open supabase/fifo_batches.sql and run CREATE TABLE, CREATE INDEX, ALTER TABLE individually. Do NOT run as a Logs query. All queries are additive: no existing tables overwritten.
-3. At GitHub repo root, upload the CONTENTS of this ZIP (app, lib), not a parent folder and not the ZIP. Verify paths such as app/StreamSummaryCard.tsx, app/InventoryBatches.tsx, app/ProductFinance.tsx, app/api/analytics/route.ts, app/api/tiktok/products/route.ts, app/api/inventory/batches/route.ts, lib/fifo.ts.
-4. Commit, check Vercel's Production deployment says Ready. Test the new Inventory Batches panel and date-range payout panel before relying on figures.
-5. Enter historical purchase batches from before the first imported sale; otherwise pre-batch historical inventory won't be costed.
+Payouts shows:
+- Gross product sales for counted orders in the selected date range.
+- MODELED expected payout = product sales less ASSUMED 6% TikTok fees and available seller net shipping charges.
+- Imported final settlement sums matched to order ID, attributed to order date (NOT bank payout date).
+- Counts of settled orders, orders missing settlement records, and orders missing shipping details.
+- Confirmed bank payouts are clearly labeled 'Not connected'.
 
-LIMITATIONS / TESTING
-- This is a patch against the repository ZIP supplied earlier, plus latest Stream Summary styling patch. Deploy and verify before relying on numbers.
-- ZIP integrity, TypeScript/TSX transpile syntax, and a simple two-batch FIFO test passed. A full Next.js build could not be completed because npm dependency installation timed out in this environment.
-- Current importer and reporting have 5k–20k row caps; if those are reached, some costs and profits are incomplete.
-- Do not interpret order settlement sums as bank payout. TikTok can pay out later and withhold/release reserves; Seller Center Payout/Payment records are needed to track what reached your bank.
-- Existing 6% referral fee is just an estimate, not an exact TikTok fee report.
+IMPORTANT: This is not yet TikTok's own estimated payout API. An unsettled transaction estimate importer and actual payout records would be separate backend work. Do not interpret the modeled number as official TikTok payout, or the settlement sum as bank money received. These amounts could differ due to refunds, affiliates, reserves, adjustments and missing shipping.
+
+PREREQUISITE: Deploy the preceding Soul-Analytics-FIFO-Payout-Update first and run its supabase/fifo_batches.sql migration. This tab relies on payoutEstimate fields returned by that update's analytics endpoint. For safety, the ZIP contains the matching analytics route alongside page.tsx; don't install alongside an older inventory migration.
+
+INSTALL:
+1. Back up your currently working GitHub main branch via Code > Download ZIP.
+2. At GitHub repo ROOT, upload the app folder from this extracted ZIP (do not upload an extra parent directory).
+3. Check file paths app/page.tsx and app/api/analytics/route.ts. Commit.
+4. Verify Vercel production build status Ready; test Payouts tab with one-day and custom ranges.
+
+NO NEW ENVIRONMENT VARIABLES OR TABLES beyond the prior FIFO patch.
+Only app/page.tsx changes UI; analytics/route.ts is included to keep payout shape consistent with latest FIFO patch.
+The source was checked with TypeScript transpile syntax but full production build/live API not verified.
