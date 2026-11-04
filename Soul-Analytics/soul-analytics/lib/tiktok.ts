@@ -1,0 +1,5 @@
+import {createClient} from "@supabase/supabase-js";
+import {createCipheriv,createDecipheriv,randomBytes} from "node:crypto";
+export function db(){const url=process.env.NEXT_PUBLIC_SUPABASE_URL;const key=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!key)throw Error("Missing Supabase server credentials");return createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}})}
+export async function owner(header:string|null){const token=header?.replace(/^Bearer /i,"");if(!token)return null;const client=db();const {data:{user},error}=await client.auth.getUser(token);if(error||!user)return null;const {data}=await client.from("profiles").select("user_id").eq("user_id",user.id).maybeSingle();return data?user:null}
+export function encrypt(value:string){const key=Buffer.from(process.env.TIKTOK_TOKEN_ENCRYPTION_KEY||"","hex");if(key.length!==32)throw Error("Missing 32-byte token encryption key");const iv=randomBytes(12);const cipher=createCipheriv("aes-256-gcm",key,iv);const encrypted=Buffer.concat([cipher.update(value,"utf8"),cipher.final()]);return Buffer.concat([iv,cipher.getAuthTag(),encrypted]).toString("base64")}
