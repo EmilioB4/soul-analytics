@@ -109,3 +109,56 @@ h1{font-size:27px}h2{font-size:16px}.eyebrow{color:#a6a6bf}.muted{color:#9ba3b2}
 .shareModalBackdrop{position:fixed;inset:0;z-index:1000;background:rgba(2,3,7,.84);display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(9px)}.shareModal{width:min(1040px,100%);max-height:calc(100vh - 48px);overflow:auto;background:#151922;border:1px solid #3e4552;border-radius:18px;box-shadow:0 30px 90px #000b;padding:20px}.shareModalHeader{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:15px}.shareModalHeader h2{font-size:20px;margin:0 0 5px}.shareModalHeader p{font-size:12px;margin:0;color:#a0aabb}.shareModalClose{background:#232832;border:1px solid #363d49;color:#e7eaf2;border-radius:9px;width:36px;height:36px;font-size:24px}.shareModalImage{overflow:hidden;border:1px solid #303744;border-radius:11px;background:#080a0e}.shareModalImage canvas{display:block;width:100%;height:auto;aspect-ratio:16/9}.shareModalFooter{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-top:16px}.shareModalFooter>span{font-size:11px;color:#9aa5b4}.shareModalActions{display:flex;gap:9px}
 @media(max-width:1000px){.dashboardGrid{grid-template-columns:1fr}.content{padding:24px 20px}.metricGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:640px){.headingRight{flex-wrap:wrap;justify-content:flex-end}.shareModalBackdrop{padding:9px}.shareModal{padding:12px;max-height:calc(100vh - 18px)}.shareModalFooter{flex-direction:column;align-items:stretch}.shareModalActions>*{flex:1}.metricGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.metricCard{padding:13px}.metricValue{font-size:22px}}
+
+
+/* Soul selectable appearance — dark remains the default. */
+.themeToggle{width:100%;display:flex;align-items:center;gap:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:10px;padding:10px 9px;margin-bottom:18px;text-align:left;font-weight:650;font-size:12px;transition:background .15s,border-color .15s}
+.themeToggle:hover{background:var(--panel2);border-color:var(--accent)}
+.themeToggleIcon{font-size:16px;width:20px;text-align:center;color:var(--accent)}
+.themeToggleTrack{margin-left:auto;width:31px;height:18px;border-radius:20px;background:#353847;padding:3px;display:flex;align-items:center}
+.themeToggleThumb{display:block;background:#dfd7ff;width:12px;height:12px;border-radius:50%;transform:translateX(0);transition:transform .2s}
+html[data-soul-theme=light] .themeToggleTrack{background:#b5c6ed}
+html[data-soul-theme=light] .themeToggleThumb{transform:translateX(13px);background:#fff}
+
+/* Light-mode palette. No changes to backend data, charts, or exported PNG. */
+html[data-soul-theme=light]{color-scheme:light;--bg:#f5f7fb;--panel:#ffffff;--panel2:#f0f3f9;--border:#dbe1eb;--text:#1b2535;--muted:#657185;--accent:#6256c7;--accent2:#357eac}
+html[data-soul-theme=light] body{background:var(--bg);color:var(--text)}
+html[data-soul-theme=light] .sidebar,html[data-soul-theme=light] .masthead,html[data-soul-theme=light] .mobileNav{background:#fff;border-color:#e0e5ef}
+html[data-soul-theme=light] .brand strong,html[data-soul-theme=light] .breadcrumb,html[data-soul-theme=light] .pageHeading,html[data-soul-theme=light] .metricValue,html[data-soul-theme=light] .chartTotal{color:#1b2535}
+html[data-soul-theme=light] .brand small,html[data-soul-theme=light] .navCaption,html[data-soul-theme=light] .sidebarFoot p,html[data-soul-theme=light] .connectionChip,html[data-soul-theme=light] .breadcrumb span,html[data-soul-theme=light] .liveMark{color:#67728a}
+html[data-soul-theme=light] .navItem{color:#48566c}
+html[data-soul-theme=light] .navItem:hover{background:#edf1fa;color:#212d41}
+html[data-soul-theme=light] .navItem.active{background:#ebeaff;color:#342e72;border-color:#d4cfff;box-shadow:inset 3px 0 #7b72e6}
+html[data-soul-theme=light] .navSymbol{color:#64718b}
+html[data-soul-theme=light] .sidebarFoot,html[data-soul-theme=light] .chartArea,html[data-soul-theme=light] .disclaimer{border-color:#e0e5ee}
+html[data-soul-theme=light] .signout{color:#566275}
+html[data-soul-theme=light] .content{background:transparent}
+html[data-soul-theme=light] .surface,html[data-soul-theme=light] .filters,html[data-soul-theme=light] .metricCard,html[data-soul-theme=light] .metricCard:first-child,html[data-soul-theme=light] .estimateDetails,html[data-soul-theme=light] .miniCards .stat,html[data-soul-theme=light] details.surface{background:#fff;border-color:#dde3ed;box-shadow:0 2px 12px rgba(22,35,64,.035)}
+html[data-soul-theme=light] .metricLabel,html[data-soul-theme=light] .surfaceHeader p,html[data-soul-theme=light] .muted,html[data-soul-theme=light] .metricNote,html[data-soul-theme=light] .filterLabel,html[data-soul-theme=light] .dateRange,html[data-soul-theme=light] .underTable,html[data-soul-theme=light] .disclaimer{color:#657185}
+html[data-soul-theme=light] .metricValue,html[data-soul-theme=light] .profitBubble .metricValue,html[data-soul-theme=light] .stat strong{color:#1f293a}
+html[data-soul-theme=light] .metricIcon{background:#f0edff;color:#655abb}
+html[data-soul-theme=light] .segment{background:#f0f2f8;border-color:#dce2ed}
+html[data-soul-theme=light] .segment button{color:#59667b}
+html[data-soul-theme=light] .segment button.selected{background:#7169dc;color:#fff}
+html[data-soul-theme=light] .outlineBtn,html[data-soul-theme=light] .buttonRow button,html[data-soul-theme=light] .smallBtn{background:#fff;color:#364359;border-color:#d5dce9}
+html[data-soul-theme=light] .outlineBtn:hover{background:#f2f4fa}
+html[data-soul-theme=light] .seller,html[data-soul-theme=light] .modernTable td,html[data-soul-theme=light] .modernTable th,html[data-soul-theme=light] .productTable td,html[data-soul-theme=light] .productTable th{border-color:#e7ebf2}
+html[data-soul-theme=light] .modernTable th,html[data-soul-theme=light] .productTable th,html[data-soul-theme=light] .sellerInfo small,html[data-soul-theme=light] .rank,html[data-soul-theme=light] .settingsMeta span{color:#657185}
+html[data-soul-theme=light] .mono{color:#505c75}
+html[data-soul-theme=light] input,html[data-soul-theme=light] select,html[data-soul-theme=light] textarea{background:#fff;color:#202a3d;border-color:#cad3e2}
+html[data-soul-theme=light] .statusPill,html[data-soul-theme=light] .connectBadge{background:#f2efff;color:#554d9b;border-color:#ddd7f6}
+html[data-soul-theme=light] .alertBox,html[data-soul-theme=light] .msg{background:#fff5e9;color:#79511d;border-color:#f4d3a6}
+html[data-soul-theme=light] .loginScreen{background:radial-gradient(circle at 50% 0%,#efebff,transparent 55%),#f5f7fb}
+html[data-soul-theme=light] .loginPanel{background:#fff;border-color:#dce2ed}
+html[data-soul-theme=light] .shareModal{background:#fff;color:#1b2535;border-color:#d7deea}
+html[data-soul-theme=light] .shareModalHeader p{color:#657185}
+html[data-soul-theme=light] .shareModalClose{background:#edf1f8;color:#263149;border-color:#dce2eb}
+html[data-soul-theme=light] .mobileNav button{background:#f0f2f8;color:#516078}
+html[data-soul-theme=light] .mobileNav button.selected{background:#7267d8;color:#fff}
+html[data-soul-theme=light] .themeToggle{color:#48566c}
+
+/* Compact appearance switch at the bottom of the desktop sidebar. */
+.sidebarFoot .themeToggleCompact{width:82px;height:32px;padding:5px 8px;gap:8px;margin:0 0 17px;border-radius:999px;justify-content:space-between;background:var(--panel);border:1px solid var(--border)}
+.sidebarFoot .themeToggleCompact .themeToggleIcon{width:18px;font-size:15px;line-height:1;color:var(--accent)}
+.sidebarFoot .themeToggleCompact .themeToggleTrack{margin-left:0;flex-shrink:0}
+.sidebarFoot .themeToggleCompact:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
