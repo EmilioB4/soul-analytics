@@ -60,12 +60,12 @@ function drawCard(ctx:CanvasRenderingContext2D,data:CardData,logo:HTMLImageEleme
  const metrics=[{label:'GROSS SALES',value:compactMoney(data.total),sub:'Product sales subtotal'},{label:'ESTIMATED PROFIT',value:data.profitEstimate?.profit==null?'Unavailable':compactMoney(data.profitEstimate.profit),sub:data.profitEstimate?.partial?'Partial — costs missing':'6% fee + saved COGS'},{label:'UNITS SOLD',value:String(data.unitsSold),sub:'Eligible imported items'},{label:'ORDERS',value:String(data.paidOrders),sub:'Counted orders'}];
  const x0=73,gap=20,w=(1454-gap*3)/4,y=223,h=221;
  metrics.forEach((m,i)=>{const x=x0+i*(w+gap);slab(ctx,x,y,w,h,26);ctx.save();ctx.shadowColor=i%2?'rgba(188,142,255,.32)':'rgba(108,211,255,.29)';ctx.shadowBlur=14;ctx.beginPath();ctx.moveTo(x+26,y+1);ctx.lineTo(x+w-26,y+1);ctx.strokeStyle=i%2?'#c5adff':'#a6dfff';ctx.lineWidth=1.6;ctx.stroke();ctx.restore();
- // Small, left-aligned icon; all typography and other card styling unchanged.
- icon(ctx,(['sales','profit','units','orders'] as const)[i],x+26,y+25,.68);
- line(ctx,m.label,x+w/2,y+91,{size:19,weight:700,color:'#e4e6ef',align:'center'});
+ // Icon and label form a left-aligned stack; the amount stays centered below with clear separation.
+ icon(ctx,(['sales','profit','units','orders'] as const)[i],x+26,y+22,.68);
+ line(ctx,m.label,x+26,y+106,{size:19,weight:700,color:'#e4e6ef',align:'left'});
  const valueSize=shrink(ctx,m.value,w-46,m.value.length>11?47:62,25);
- line(ctx,m.value,x+w/2,y+157,{size:valueSize,weight:700,align:'center'});
- line(ctx,m.sub,x+w/2,y+202,{size:16,color:'#a7aebe',align:'center'});
+ line(ctx,m.value,x+w/2,y+177,{size:valueSize,weight:700,align:'center'});
+ line(ctx,m.sub,x+w/2,y+207,{size:16,color:'#a7aebe',align:'center'});
  });
  // Top-three profitability is by dollar profit for SKUs with complete costs.
  slab(ctx,73,472,1454,352,29);
