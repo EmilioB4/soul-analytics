@@ -1,0 +1,27 @@
+SOUL ANALYTICS — DOWNLOADABLE STREAM SUMMARY CARD
+
+WHAT THIS PACKAGE DOES
+- Adds a 1600 x 900 PNG export section below the Revenue Overview chart.
+- Reuses the existing Daily / Weekly / Monthly / YTD / Custom date-range filters.
+- Displays gross product-sales subtotal, estimated profit, units sold, counted orders, top seller, and selected date(s).
+- Uses the official Soul logo already included with your repository, cropped into a transparent wordmark (no AI replacement logo).
+- No new packages, Supabase tables, or Vercel variables needed.
+
+INSTALLATION
+1. Download and extract the ZIP.
+2. In GitHub soul-analytics main branch, at the ROOT of the repository, select Add file -> Upload files.
+3. Drag app/ and public/ folders from the extracted ZIP into the upload area. Paths MUST appear as:
+   app/StreamSummaryCard.tsx
+   app/page.tsx
+   app/api/analytics/route.ts
+   public/soul-wordmark-transparent.png
+4. Commit the change. Check Vercel deployment status is Ready.
+5. Open Soul Analytics > TikTok Shop Revenue Overview, select your period (including Custom), scroll below sales chart, and click Download PNG.
+
+IMPORTANT DATA NOTES
+- Gross Sales on the card is actually your imported TikTok PRODUCT SALES SUBTOTAL, not TikTok GMV or a payout figure.
+- Estimated profit applies the 6% fee assumption and saved SKU COGS, plus recorded shipping where available. It is partial if some costs are missing.
+- The card shows ALL imported eligible orders for the selected date(s), not a specific livestream. To isolate one livestream in the future, order-to-stream assignment or time-range tracking needs to be added.
+- Historical dates can show only orders already imported into Supabase.
+- The original backend and TikTok authentication remain unchanged.
+- TypeScript files passed transpilation syntax checks but a production build was not run here; verify the Vercel build before relying on it.
