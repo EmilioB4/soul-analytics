@@ -34,3 +34,54 @@ body { background: radial-gradient(ellipse 80% 55% at 88% -16%,rgba(149,122,255,
 .loginLogoCaption { font-size:18px; font-weight:850; letter-spacing:3px; color:#f3edff; }
 .loginLogoCaption small { display:block; font-size:9px; letter-spacing:4px; color:#c4b7e8; margin-top:5px; }
 @media(max-width:760px) { .brandLogo {width:43px;height:43px;} .mobileBrand {display:flex;} }
+
+/* Soul Analytics charcoal / iridescent refinement */
+:root {
+  --bg:#17191f;
+  --panel:#22252e;
+  --panel2:#292c36;
+  --border:#373b46;
+  --text:#f4f5f9;
+  --muted:#abb0bf;
+  --accent:#b7a2ff;
+  --accent2:#9ed6ff;
+}
+body { background:#17191f; color:var(--text); }
+.sidebar { background:#191b22; border-right-color:#333742; }
+.masthead { background:#191b22; border-bottom-color:#343842; }
+.content { background:transparent; }
+.surface, .filters { background:#22252e; border-color:#383c47; }
+.metricCard, .metricCard:first-child {
+  background:linear-gradient(145deg,#2b2d38,#23262f 86%);
+  border-color:#3e424e;
+}
+.metricCard:first-child { border-color:#5c5374; }
+.metricLabel,.surfaceHeader p,.muted,.metricNote { color:#b6bac8; }
+.navItem { color:#b8bdc9; }
+.navItem:hover { background:#292c36; }
+.navItem.active {
+  background:linear-gradient(100deg,rgba(158,214,255,.12),rgba(183,162,255,.11));
+  border-color:#555166;
+  box-shadow:inset 3px 0 #b7a2ff;
+  color:#f6f5fb;
+}
+.segment { background:#1b1e25; border-color:#3b3e48; }
+.segment button { color:#b9bdc8; }
+.segment button.selected { background:linear-gradient(115deg,#9ed6ff,#b7a2ff); color:#1a1b23; }
+.primaryBtn { background:linear-gradient(105deg,#9ed6ff 0%,#b7a2ff 55%,#f1b5df 100%); color:#17191f; }
+.primaryBtn:hover { background:linear-gradient(105deg,#c9e8ff,#d0c0ff,#f9d1e8); }
+.outlineBtn,.buttonRow button,.smallBtn { background:#2c303a; color:#ded6f3; border-color:#555066; }
+.seller { border-top-color:#373b45; }
+.modernTable td,.modernTable th,.productTable td,.productTable th { border-bottom-color:#363a46; }
+.miniCards .stat { background:#292c35; border-color:#3d414c; }
+input { background:#1b1d25; color:#f5f5f9; border-color:#454958; }
+input:focus { border-color:#b7a2ff; }
+.loginScreen { background:radial-gradient(ellipse at 50% 0%,rgba(179,158,255,.13),transparent 54%),#17191f; }
+.loginPanel { background:#22252e; border-color:#444454; }
+.sidebarFoot,.settingsMeta,.settingsMeta>div,.chartArea { border-color:#383c46; }
+.disclaimer { border-color:#383c46; }
+.mobileNav { background:#191b22; border-color:#343842; }
+.mobileNav button { background:#292c36; color:#c5c6d0; }
+.mobileNav button.selected { background:linear-gradient(105deg,#9ed6ff,#b7a2ff);color:#181b24; }
+.brandLogo,.loginLogo { border-color:#696177; }
+@media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; transition-duration:0.01ms!important; animation-duration:0.01ms!important; } }

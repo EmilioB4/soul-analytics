@@ -1,15 +1,11 @@
-# Soul Analytics — Iridescent logo theme
+# Soul Analytics — Charcoal + Iridescent Theme
 
-This package is based on the existing Dashboard Revamp. It changes branding and styles only, leaving the existing TikTok endpoints and database schema intact.
+This is a **visual theme update only**. It changes `app/page.tsx`, `app/globals.css`, and adds `public/soul-iridescent-logo.jpg`. It does not alter the TikTok routes, API keys, Supabase tables, or COGS backend.
 
-## Installation
-1. Keep a backup of your currently working GitHub repository.
-2. At the repository ROOT (not inside a new folder), update the following files:
-   - `app/page.tsx`
-   - `app/globals.css`
-   - `public/soul-iridescent-logo.jpg`
-3. Commit changes. Vercel should build a new deployment.
-4. Confirm login, sidebar branding, graph and Product & COGS/Finance/Orders tabs function.
+1. Make sure your current GitHub `main` branch has the working dashboard revamp, finance, and COGS code.
+2. From the repository root, choose **Add file → Upload files**. Upload the `app` and `public` folders from this ZIP, not their parent folder.
+3. Confirm upload paths are `app/page.tsx`, `app/globals.css`, and `public/soul-iridescent-logo.jpg` before committing.
+4. Commit, then verify the latest Vercel deployment says **Ready**.
+5. Refresh Soul Analytics and check the logo, charcoal cards, chart, and tabs.
 
-No new Supabase SQL or Vercel environment variables are required.
-If you have made changes to app/page.tsx or globals.css since installing Dashboard Revamp, compare changes before overwriting.
+This update hasn't been production-built or live-tested. The changes are deliberately limited to a visual layer to reduce risk to your working TikTok integration.
