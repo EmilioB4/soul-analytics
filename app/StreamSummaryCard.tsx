@@ -86,15 +86,22 @@ function drawCard(ctx:CanvasRenderingContext2D,data:CardData,logo:HTMLImageEleme
  line(ctx,'SOUL ANALYTICS',73,873,{size:18,weight:700,color:'#b7bfd0'});
  line(ctx,'SKU estimates exclude shipping allocation · Overall profit may be partial',1527,873,{size:15,align:'right',color:'#a0a8b8'});
 }
-export default function StreamSummaryCard({data,loading}:{data:CardData|null;loading:boolean}){
+export default function StreamSummaryCard({data,loading,onClose}:{data:CardData|null;loading:boolean;onClose:()=>void}){
  const canvasRef=useRef<HTMLCanvasElement|null>(null);
  const [ready,setReady]=useState(false);const [error,setError]=useState('');
  useEffect(()=>{let active=true;setReady(false);if(!data)return;const c=canvasRef.current;if(!c)return;const ctx=c.getContext('2d');if(!ctx)return;
  const load=(src:string,cross=false)=>new Promise<HTMLImageElement|null>(resolve=>{const img=new Image();if(cross)img.crossOrigin='anonymous';img.onload=()=>resolve(img);img.onerror=()=>resolve(null);img.src=src;});
  (async()=>{const [logo,...productImages]=await Promise.all([load('/soul-wordmark-transparent.png'),...(data.topProfitItems||[]).slice(0,3).map(item=>item.image?load(item.image,true):Promise.resolve(null))]);if(!active)return;try{drawCard(ctx,data,logo,productImages);setReady(true);setError('')}catch(e){setError('Could not render summary card.');}})();return()=>{active=false};},[data]);
  async function download(){const canvas=canvasRef.current;if(!canvas||!ready||!data)return;canvas.toBlob(blob=>{if(!blob){setError('Unable to export PNG.');return;}const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`soul-summary-${data.start}${data.start===data.end?'':`-to-${data.end}`}.png`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000)},'image/png')}
- return <section className="surface" style={{padding:'24px',marginTop:25}}><div className="surfaceHeader"><div><div className="eyebrow">SHAREABLE PERFORMANCE CARD</div><h2>Stream summary image</h2><p className="muted">Uses the reporting dates selected above. Shows all eligible orders for the selected dates, not just one livestream. Top 3 is ranked by estimated SKU profit before shipping.</p></div><button className="primaryBtn" onClick={download} disabled={!ready||loading||!data}>{ready?'↓ Download PNG':'Preparing card…'}</button></div>
- <canvas ref={canvasRef} width={1600} height={900} aria-label="Stream summary image preview" role="img" style={{width:'100%',height:'auto',display:'block',borderRadius:14,background:'#16181d',border:'1px solid #343947'}}/>
- {data?.payoutEstimate&&<div style={{marginTop:18,padding:18,borderRadius:14,border:'1px solid #494557',background:'#22232d'}}><div className="eyebrow">TIKTOK PAYOUT ESTIMATE · SELECTED DATES</div><div style={{display:'flex',gap:28,flexWrap:'wrap',marginTop:10}}><div><small className="muted">Expected seller payout</small><div style={{fontWeight:750,fontSize:26}}>{usd(data.payoutEstimate.expected)}</div><small className="muted">Product subtotal less estimated 6% fee and recorded net shipping; before reserves, refunds and other adjustments</small></div><div><small className="muted">Imported order settlements</small><div style={{fontWeight:750,fontSize:26}}>{data.payoutEstimate.settledOrderAmount==null?'Unavailable':usd(data.payoutEstimate.settledOrderAmount)}</div><small className="muted">{data.payoutEstimate.settledOrderCount} of {data.paidOrders} eligible orders have settlement records</small></div><div><small className="muted">Confirmed bank payout</small><div style={{fontWeight:750,fontSize:26}}>Not connected</div><small className="muted">Requires payout/payment records, not just order settlements</small></div></div>{data.payoutEstimate.partial&&<p className="muted" style={{fontSize:12,marginBottom:0}}>Partial estimate: {data.payoutEstimate.missingShippingOrders} orders lack settled shipping records. This period includes all imported orders for the selected dates; it is not automatically restricted to a single livestream.</p>}</div>}
- {error&&<p className="msg">{error}</p>}<p className="muted" style={{fontSize:12,marginBottom:0}}>1600 × 900 PNG · Overall profit estimates use 6% fees, saved COGS and available seller shipping. Top 3 SKU profits exclude unallocated shipping. Missing costs and refunds may change the figures.</p></section>
+ return <div className="shareModalBackdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
+  <section className="shareModal" role="dialog" aria-modal="true" aria-labelledby="shareModalTitle">
+   <div className="shareModalHeader">
+    <div><h2 id="shareModalTitle">Share PNL</h2><p>Export a summary for your selected dates</p></div>
+    <button type="button" className="shareModalClose" onClick={onClose} aria-label="Close summary">×</button>
+   </div>
+   <div className="shareModalImage"><canvas ref={canvasRef} width={1600} height={900} role="img" aria-label="Soul Stream Summary preview" /></div>
+   {error&&<p className="msg" role="alert">{error}</p>}
+   <div className="shareModalFooter"><span>Estimated profit · not final accounting profit</span><div className="shareModalActions"><button className="outlineBtn" onClick={onClose}>Close</button><button className="sharePnlBtn" onClick={download} disabled={!ready||loading||!data}>{!ready?'Preparing…':'↓ Download PNG'}</button></div></div>
+  </section>
+ </div>;
 }
