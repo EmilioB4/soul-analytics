@@ -37,6 +37,10 @@ export default function Home(){
  const [rangeError,setRangeError]=useState('');
  const [analytics,setAnalytics]=useState<Analytics|null>(null),[analyticsBusy,setAnalyticsBusy]=useState(false),[analyticsError,setAnalyticsError]=useState('');
  const [syncBusy,setSyncBusy]=useState(false),[syncMessage,setSyncMessage]=useState('');
+ const [officialPayouts,setOfficialPayouts]=useState<{unsettledAmount:number|null;paidTotal:number|null;processingTotal:number|null}|null>(null);
+ const [bankPayouts,setBankPayouts]=useState<{connected:boolean;candidateTotal?:number}|null>(null);
+ const handleOfficialSummary=useCallback((data:{unsettledAmount:number|null;paidTotal:number|null;processingTotal:number|null}|null)=>setOfficialPayouts(data),[]);
+ const handleBankSummary=useCallback((data:{connected:boolean;candidateTotal?:number}|null)=>setBankPayouts(data),[]);
  const [tiktokBusy,setTiktokBusy]=useState(false),[tiktokMessage,setTiktokMessage]=useState(''),[tiktokConnected,setTiktokConnected]=useState(false);
  const token=async()=>{const {data}=await supabase!.auth.getSession();if(!data.session)throw Error('Please sign in again');return data.session.access_token;};
  const loadAnalytics=useCallback(async(p:Period)=>{if(!supabase)return;if(p==='custom'&&!appliedRange)return;setAnalyticsBusy(true);try{const t=await token();const query=new URLSearchParams({period:p});if(p==='custom'&&appliedRange){query.set('start',appliedRange.start);query.set('end',appliedRange.end)}const res=await fetch(`/api/analytics?${query.toString()}`,{headers:{Authorization:`Bearer ${t}`},cache:'no-store'});const j=await res.json();if(!res.ok)throw Error(j.error||'Unable to load reports');setAnalytics(j);setAnalyticsError('');}catch(e){setAnalyticsError(e instanceof Error?e.message:'Unable to load reports');}finally{setAnalyticsBusy(false)}},[appliedRange]);
@@ -63,38 +67,38 @@ export default function Home(){
  {tab==='overview'&&<StreamSummaryCard data={analytics} loading={analyticsBusy}/>}
  {tab==='orders'&&<section className="surface"><div className="surfaceHeader"><div><div className="eyebrow">ORDER HISTORY</div><h2>Recent orders</h2><p className="muted">Latest orders in the selected period</p></div><button className="outlineBtn" onClick={syncOrders} disabled={syncBusy||!tiktokConnected}>{syncBusy?'Syncing…':'Sync orders'}</button></div>{syncMessage&&<p className="msg">{syncMessage}</p>}<div className="tableScroll"><table className="modernTable"><thead><tr><th>Order ID</th><th>Date</th><th>Status</th><th className="number">Product subtotal</th><th className="number">Net seller shipping</th></tr></thead><tbody>{analytics?.recent.map(o=><tr key={o.id}><td className="mono">{o.id}</td><td>{o.date?new Date(o.date).toLocaleString('en-US',{dateStyle:'medium',timeStyle:'short'}):'—'}</td><td><span className="statusPill">{o.status.replaceAll('_',' ')}</span></td><td className="number">{o.currency==='USD'&&o.subtotal!=null?money(Number(o.subtotal)):'—'}</td><td className="number">{o.shippingCost!=null?money(o.shippingCost):'—'}</td></tr>)}</tbody></table>{!analytics?.recent.length&&<div className="empty">No orders found for this period.</div>}</div><div className="underTable">Showing up to 14 recent orders · Shipping is a net seller charge from TikTok settled finance records, when available</div></section>}
  {tab==='payouts'&&<>
-  <div className="metricGrid">
-   <div className="metricCard"><div className="metricIcon mint">↗</div><div className="metricLabel">Gross product sales</div><div className="metricValue">{analytics?money(analytics.total):'—'}</div><div className="metricNote">Counted orders in the selected period</div></div>
-   <div className="metricCard"><div className="metricIcon blue">$</div><div className="metricLabel">Modeled expected payout</div><div className="metricValue">{analytics?.payoutEstimate?money(analytics.payoutEstimate.expected):'—'}</div><div className="metricNote">6% assumed fee + available net shipping; not TikTok's official estimate</div></div>
-   <div className="metricCard"><div className="metricIcon rose">◈</div><div className="metricLabel">Imported settled amount</div><div className="metricValue">{analytics?.payoutEstimate?.settledOrderAmount!=null?money(analytics.payoutEstimate.settledOrderAmount):'—'}</div><div className="metricNote">Final order settlement records available so far</div></div>
-   <div className="metricCard"><div className="metricIcon amber">◷</div><div className="metricLabel">Orders awaiting settlement data</div><div className="metricValue">{analytics?.payoutEstimate?.unsettledOrderCount.toLocaleString()??'—'}</div><div className="metricNote">No imported final settlement for these orders</div></div>
+  <div className="metricGrid" style={{marginBottom:16}}>
+   <div className="metricCard"><div className="metricLabel">TikTok expected payout</div><div className="metricValue">{officialPayouts?.unsettledAmount!=null?money(officialPayouts.unsettledAmount):'—'}</div><div className="metricNote">TikTok's imported unsettled estimates · not a bank deposit</div></div>
+   <div className="metricCard"><div className="metricLabel">Imported settled amount</div><div className="metricValue">{analytics?.payoutEstimate?.settledOrderAmount!=null?money(analytics.payoutEstimate.settledOrderAmount):'—'}</div><div className="metricNote">Finalized order settlements in selected period</div></div>
+   <div className="metricCard"><div className="metricLabel">Paid by TikTok</div><div className="metricValue">{officialPayouts?.paidTotal!=null?money(officialPayouts.paidTotal):'—'}</div><div className="metricNote">Reported transferred · not bank-verified</div></div>
+   <div className="metricCard"><div className="metricLabel">Potential Chase deposits</div><div className="metricValue">{bankPayouts?.connected?money(bankPayouts.candidateTotal??0):'—'}</div><div className="metricNote">Bank description matches · not yet reconciled</div></div>
   </div>
-  <div className="dashboardGrid">
-   <section className="surface" style={{padding:'24px'}}><div className="surfaceHeader"><div><div className="eyebrow">MODELED PAYOUT</div><h2>Expected payout breakdown</h2><p className="muted">Uses a flat 6% TikTok fee assumption until official estimated transactions are connected.</p></div></div>
-    <div style={{display:'grid',gap:15,marginTop:18}}>
-     <div style={{display:'flex',justifyContent:'space-between',gap:12}}><span className="muted">Gross product sales</span><strong>{analytics?money(analytics.total):'—'}</strong></div>
-     <div style={{display:'flex',justifyContent:'space-between',gap:12}}><span className="muted">Estimated platform fee (6%)</span><strong>{analytics?.payoutEstimate?`−${money(analytics.payoutEstimate.assumedFee)}`:'—'}</strong></div>
-     <div style={{display:'flex',justifyContent:'space-between',gap:12}}><span className="muted">Recorded net seller shipping</span><strong>{analytics?.payoutEstimate?`−${money(analytics.payoutEstimate.recordedShipping)}`:'—'}</strong></div>
+  <div className="surface" style={{padding:'16px 20px',marginBottom:16,display:'flex',justifyContent:'space-between',gap:12,alignItems:'center',flexWrap:'wrap'}}>
+   <div><strong style={{fontSize:14}}>Payout tracking</strong><div className="muted" style={{fontSize:12,marginTop:4}}>{analytics?.payoutEstimate?`${analytics.payoutEstimate.unsettledOrderCount} orders without imported final settlements · ${analytics.payoutEstimate.missingShippingOrders} missing shipping data`:'Loading settlement coverage…'}</div></div>
+   <span className="muted" style={{fontSize:12}}>Estimates, settlements, transfers and bank deposits are separate stages.</span>
+  </div>
+  <details className="surface" style={{padding:'16px 20px',marginBottom:14}}>
+   <summary style={{cursor:'pointer',fontWeight:700,fontSize:15}}>TikTok finance details <span className="muted" style={{fontWeight:400,fontSize:12}}>· sync, payment records &amp; adjustments</span></summary>
+   {analytics&&<TikTokOfficialPayouts start={analytics.start} end={analytics.end} onSummary={handleOfficialSummary} compact/>}
+  </details>
+  <details className="surface" style={{padding:'16px 20px',marginBottom:14}}>
+   <summary style={{cursor:'pointer',fontWeight:700,fontSize:15}}>Chase bank connection <span className="muted" style={{fontWeight:400,fontSize:12}}>· deposits &amp; matching</span></summary>
+   <PlaidBank onSummary={handleBankSummary} compact/>
+  </details>
+  <details className="surface" style={{padding:'16px 20px',marginBottom:14}}>
+   <summary style={{cursor:'pointer',fontWeight:700,fontSize:15}}>Fee model &amp; settlement coverage <span className="muted" style={{fontWeight:400,fontSize:12}}>· optional diagnostics</span></summary>
+   <div style={{display:'grid',gap:11,marginTop:18,maxWidth:700}}>
+     <div style={{display:'flex',justifyContent:'space-between',gap:12}}><span className="muted">Counted product sales</span><strong>{analytics?money(analytics.total):'—'}</strong></div>
+     <div style={{display:'flex',justifyContent:'space-between',gap:12}}><span className="muted">Assumed TikTok fees (6%)</span><strong>{analytics?.payoutEstimate?`−${money(analytics.payoutEstimate.assumedFee)}`:'—'}</strong></div>
+     <div style={{display:'flex',justifyContent:'space-between',gap:12}}><span className="muted">Recorded net shipping</span><strong>{analytics?.payoutEstimate?`−${money(analytics.payoutEstimate.recordedShipping)}`:'—'}</strong></div>
+     <div style={{display:'flex',justifyContent:'space-between',gap:12}}><strong>Modeled payout (not TikTok's estimate)</strong><strong>{analytics?.payoutEstimate?money(analytics.payoutEstimate.expected):'—'}</strong></div>
      <div style={{height:1,background:'#39404d'}}/>
-     <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'center'}}><b>Modeled payout</b><strong style={{fontSize:25,color:'#b9c8ff'}}>{analytics?.payoutEstimate?money(analytics.payoutEstimate.expected):'—'}</strong></div>
-    </div>
-    <p className="muted" style={{fontSize:12,marginBottom:0,marginTop:20}}>Payout is before inventory COGS; COGS affects profit, not TikTok's remittance. Refunds, affiliate commissions, reserves and other adjustments aren't included in this model.</p>
-   </section>
-   <section className="surface" style={{padding:'24px'}}><div className="surfaceHeader"><div><div className="eyebrow">SETTLEMENT STATUS</div><h2>Financial coverage</h2><p className="muted">Attributed to each order's creation date, not the date funds hit your bank.</p></div></div>
-    <div style={{display:'grid',gap:15,marginTop:18}}>
      <div style={{display:'flex',justifyContent:'space-between',gap:12}}><span className="muted">Counted orders</span><strong>{analytics?.paidOrders??'—'}</strong></div>
-     <div style={{display:'flex',justifyContent:'space-between',gap:12}}><span className="muted">Orders with settled finance</span><strong>{analytics?.payoutEstimate?.settledOrderCount??'—'}</strong></div>
+     <div style={{display:'flex',justifyContent:'space-between',gap:12}}><span className="muted">Orders with final settlement data</span><strong>{analytics?.payoutEstimate?.settledOrderCount??'—'}</strong></div>
      <div style={{display:'flex',justifyContent:'space-between',gap:12}}><span className="muted">Orders missing settled finance</span><strong>{analytics?.payoutEstimate?.unsettledOrderCount??'—'}</strong></div>
-     <div style={{display:'flex',justifyContent:'space-between',gap:12}}><span className="muted">Orders without shipping data</span><strong>{analytics?.payoutEstimate?.missingShippingOrders??'—'}</strong></div>
-     <div style={{height:1,background:'#39404d'}}/>
-     <div style={{display:'flex',justifyContent:'space-between',gap:12}}><span className="muted">Bank payout verification</span><strong>See Chase deposits below</strong></div>
-    </div>
-    {analytics?.payoutEstimate?.partial&&<div className="alertBox" style={{marginTop:18}}>Partial figures: some orders lack shipping or settlement data.</div>}
-    <p className="muted" style={{fontSize:12,marginTop:20,marginBottom:0}}>TikTok may combine many streams in one bank payment, or withhold funds as reserves. Settlement sums are not verified deposits.</p>
-   </section>
-  </div>
-  {analytics&&<TikTokOfficialPayouts start={analytics.start} end={analytics.end}/>} 
-  <PlaidBank/>
+     <p className="muted" style={{fontSize:12}}>These figures are for diagnosing data coverage only. The 6% model excludes certain refunds, affiliate commissions and reserves. TikTok may combine many orders into one bank payment.</p>
+   </div>
+  </details>
   {analytics?.limited&&<div className="alertBox">Reporting record limit reached; amounts may be incomplete.</div>}
  </>}
  {tab==='products'&&<ProductFinance/>}
