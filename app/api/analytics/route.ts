@@ -30,7 +30,7 @@ export async function GET(req:NextRequest){
   }
   const dateAllowed=(date:string|null)=>{if(!date)return false;const k=dateKey(new Date(date));return k>=start&&k<=today;};
   const orders=all.filter(o=>dateAllowed(o.created_at));
-  const payable=orders.filter(o=>!['UNPAID','CANCELLED'].includes(o.status)&&o.currency==='USD'&&o.product_subtotal!==null);
+  const payable=orders.filter(o=>!['UNPAID','CANCELLED','CANCELED'].includes(o.status)&&o.currency==='USD'&&o.product_subtotal!==null);
   const saleIds=new Set(payable.map(o=>`${o.shop_id}:${o.order_id}`));
   const total=round(payable.reduce((a,o)=>a+Number(o.product_subtotal),0));
   const bucketMap=new Map<string,{label:string;value:number;orders:number}>();
@@ -66,7 +66,27 @@ export async function GET(req:NextRequest){
    estimatedProfit=pricedSkuCount?round(pricedProductSales-estimatedFees-estimatedCOGS):null;
    topSellers=[...top.values()].sort((a,b)=>b.quantity-a.quantity).slice(0,6).map(x=>({...x,sales:round(x.sales)}));
   }
+  // Shipping is sourced only from imported settlement records; do not infer it from buyer-paid totals.
+  const finance:any[]=[];
+  for(let offset=0;offset<10000;offset+=1000){
+   const {data,error}=await client.from('tiktok_order_finance').select('shop_id,order_id,currency,shipping_cost_amount').eq('owner_id',user.id).range(offset,offset+999);
+   if(error)throw Error('Unable to read imported finance records');
+   if(!data?.length)break;
+   finance.push(...data);
+   if(data.length<1000)break;
+   if(offset===9000)limited=true;
+  }
+  const periodIds=new Set(orders.map(o=>`${o.shop_id}:${o.order_id}`));
+  const shippingByOrder=new Map<string,number>();
+  for(const f of finance){
+   const key=`${f.shop_id}:${f.order_id}`;
+   if(periodIds.has(key)&&f.currency==='USD'&&f.shipping_cost_amount!=null&&Number.isFinite(Number(f.shipping_cost_amount)))shippingByOrder.set(key,Number(f.shipping_cost_amount));
+  }
+  const shippingTotal=shippingByOrder.size?round([...shippingByOrder.values()].reduce((a,v)=>a+v,0)):null;
+  const cancelled=orders.filter(o=>['CANCELLED','CANCELED'].includes(String(o.status).toUpperCase()));
+  const refundedStatus=orders.filter(o=>/REFUND/i.test(String(o.status)));
+  const orderInsights={cancelledCount:cancelled.length,cancelledSubtotal:round(cancelled.filter(o=>o.currency==='USD'&&o.product_subtotal!=null).reduce((n,o)=>n+Number(o.product_subtotal),0)),refundedStatusCount:refundedStatus.length,shippingTotal,shippingAverage:shippingTotal!=null?round(shippingTotal/shippingByOrder.size):null,shippingOrderCount:shippingByOrder.size,shippingIncomplete:shippingByOrder.size<orders.length||limited};
   const bins=[...bucketMap.entries()].map(([key,b])=>({...b,key,value:round(b.value)}));
-  return NextResponse.json({period,start,end:today,total,importedOrders:orders.length,paidOrders:payable.length,cancelledOrUnpaid:orders.filter(o=>['UNPAID','CANCELLED'].includes(o.status)).length,averageOrder:payable.length?round(total/payable.length):0,bins,topSellers,limited,profitEstimate:{profit:estimatedProfit,fees:round(estimatedFees),cogs:round(estimatedCOGS),pricedSales:round(pricedProductSales),pricedSkuCount,unpricedSkuCount,productLineCount,feeRate:0.06,partial:unpricedSkuCount>0||limited||productLineCount===0},recent:orders.slice(-14).reverse().map(o=>({id:o.order_id,status:o.status,subtotal:o.product_subtotal,currency:o.currency,date:o.created_at})),lastSync:all.reduce((a,o)=>o.synced_at&&o.synced_at>a?o.synced_at:a,'')});
+  return NextResponse.json({period,start,end:today,total,orderInsights,importedOrders:orders.length,paidOrders:payable.length,cancelledOrUnpaid:orders.filter(o=>['UNPAID','CANCELLED','CANCELED'].includes(o.status)).length,averageOrder:payable.length?round(total/payable.length):0,bins,topSellers,limited,profitEstimate:{profit:estimatedProfit,fees:round(estimatedFees),cogs:round(estimatedCOGS),pricedSales:round(pricedProductSales),pricedSkuCount,unpricedSkuCount,productLineCount,feeRate:0.06,partial:unpricedSkuCount>0||limited||productLineCount===0},recent:orders.slice(-14).reverse().map(o=>({id:o.order_id,status:o.status,subtotal:o.product_subtotal,currency:o.currency,date:o.created_at,shippingCost:shippingByOrder.get(`${o.shop_id}:${o.order_id}`)??null})),lastSync:all.reduce((a,o)=>o.synced_at&&o.synced_at>a?o.synced_at:a,'')});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Unable to load analytics'},{status:503});}
 }
