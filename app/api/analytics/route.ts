@@ -40,6 +40,8 @@ export async function GET(req:NextRequest){
   for(const o of payable){const p=parts(new Date(o.created_at));const date=`${p.year}-${p.month}-${p.day}`;const key=period==='day'?p.hour:period==='ytd'?date.slice(0,7):date;const b=bucketMap.get(key);if(b){b.value+=Number(o.product_subtotal);b.orders++;}}
   let topSellers:{name:string;image:string|null;skuId:string;quantity:number;sales:number}[]=[];
   let estimatedProfit:number|null=null,estimatedFees=0,estimatedCOGS=0,pricedProductSales=0,unpricedSkuCount=0,pricedSkuCount=0,productLineCount=0;
+  const fullyPricedOrderIds=new Set<string>();
+  const ordersWithUnpricedLines=new Set<string>();
   if(saleIds.size){
    const lines:any[]=[];
    for(let offset=0;offset<10000;offset+=1000){
@@ -58,15 +60,19 @@ export async function GET(req:NextRequest){
    const top=new Map<string,{name:string;image:string|null;skuId:string;quantity:number;sales:number}>();
    for(const line of lines){if(!saleIds.has(`${line.shop_id}:${line.order_id}`))continue;productLineCount++;const key=`${line.shop_id}:${line.sku_id}`;const item=top.get(key)||{name:line.product_name||'Unnamed product',image:line.sku_image||null,skuId:line.sku_id,quantity:0,sales:0};const qty=Number(line.quantity)||0;item.quantity+=qty;if(line.currency==='USD'&&line.unit_sale_price!=null)item.sales+=qty*Number(line.unit_sale_price);top.set(key,item);
     const cost=costs.get(key);
+    const orderKey=`${line.shop_id}:${line.order_id}`;
     const priced=line.currency==='USD'&&line.unit_sale_price!=null&&Number.isFinite(Number(line.unit_sale_price))&&cost!==undefined&&Number.isFinite(cost);
     skuStatus.set(key,(skuStatus.get(key)??true)&&priced);
+    if(priced)fullyPricedOrderIds.add(orderKey);else ordersWithUnpricedLines.add(orderKey);
     if(priced){const sales=qty*Number(line.unit_sale_price);pricedProductSales+=sales;estimatedFees+=sales*0.06;estimatedCOGS+=qty*cost;}
    }
    pricedSkuCount=[...skuStatus.values()].filter(Boolean).length;unpricedSkuCount=[...skuStatus.values()].filter(v=>!v).length;
-   estimatedProfit=pricedSkuCount?round(pricedProductSales-estimatedFees-estimatedCOGS):null;
+   estimatedProfit=pricedProductSales>0?round(pricedProductSales-estimatedFees-estimatedCOGS):null;
    topSellers=[...top.values()].sort((a,b)=>b.quantity-a.quantity).slice(0,6).map(x=>({...x,sales:round(x.sales)}));
   }
-  // Shipping is sourced only from imported settlement records; do not infer it from buyer-paid totals.
+  // TikTok v202501 settlement shipping is a signed contribution (charges are negative).
+  // Invert it to display seller expense as positive; credits/rebates can produce a negative expense.
+  // Shipping is sourced only from imported settlement records, not buyer checkout shipping.
   const finance:any[]=[];
   for(let offset=0;offset<10000;offset+=1000){
    const {data,error}=await client.from('tiktok_order_finance').select('shop_id,order_id,currency,shipping_cost_amount').eq('owner_id',user.id).range(offset,offset+999);
@@ -76,17 +82,23 @@ export async function GET(req:NextRequest){
    if(data.length<1000)break;
    if(offset===9000)limited=true;
   }
-  const periodIds=new Set(orders.map(o=>`${o.shop_id}:${o.order_id}`));
+  const periodIds=new Set(payable.map(o=>`${o.shop_id}:${o.order_id}`));
   const shippingByOrder=new Map<string,number>();
   for(const f of finance){
    const key=`${f.shop_id}:${f.order_id}`;
-   if(periodIds.has(key)&&f.currency==='USD'&&f.shipping_cost_amount!=null&&Number.isFinite(Number(f.shipping_cost_amount)))shippingByOrder.set(key,Number(f.shipping_cost_amount));
+   if(periodIds.has(key)&&f.currency==='USD'&&f.shipping_cost_amount!=null&&Number.isFinite(Number(f.shipping_cost_amount)))shippingByOrder.set(key,-Number(f.shipping_cost_amount));
   }
+  // Charge shipping only on orders whose complete product lines have a known cost.
+  // A missing settlement shipping field is UNKNOWN, not zero.
+  const pricedOrderIds=new Set([...fullyPricedOrderIds].filter(k=>!ordersWithUnpricedLines.has(k)));
+  const coveredPricedOrderIds=[...pricedOrderIds].filter(k=>shippingByOrder.has(k));
+  const estimatedSellerShipping=round(coveredPricedOrderIds.reduce((sum,k)=>sum+(shippingByOrder.get(k)??0),0));
+  if(estimatedProfit!==null)estimatedProfit=round(estimatedProfit-estimatedSellerShipping);
   const shippingTotal=shippingByOrder.size?round([...shippingByOrder.values()].reduce((a,v)=>a+v,0)):null;
   const cancelled=orders.filter(o=>['CANCELLED','CANCELED'].includes(String(o.status).toUpperCase()));
   const refundedStatus=orders.filter(o=>/REFUND/i.test(String(o.status)));
-  const orderInsights={cancelledCount:cancelled.length,cancelledSubtotal:round(cancelled.filter(o=>o.currency==='USD'&&o.product_subtotal!=null).reduce((n,o)=>n+Number(o.product_subtotal),0)),refundedStatusCount:refundedStatus.length,shippingTotal,shippingAverage:shippingTotal!=null?round(shippingTotal/shippingByOrder.size):null,shippingOrderCount:shippingByOrder.size,shippingIncomplete:shippingByOrder.size<orders.length||limited};
+  const orderInsights={cancelledCount:cancelled.length,cancelledSubtotal:round(cancelled.filter(o=>o.currency==='USD'&&o.product_subtotal!=null).reduce((n,o)=>n+Number(o.product_subtotal),0)),refundedStatusCount:refundedStatus.length,shippingTotal,shippingAverage:shippingTotal!=null?round(shippingTotal/shippingByOrder.size):null,shippingOrderCount:shippingByOrder.size,shippingIncomplete:shippingByOrder.size<payable.length||limited};
   const bins=[...bucketMap.entries()].map(([key,b])=>({...b,key,value:round(b.value)}));
-  return NextResponse.json({period,start,end:today,total,orderInsights,importedOrders:orders.length,paidOrders:payable.length,cancelledOrUnpaid:orders.filter(o=>['UNPAID','CANCELLED','CANCELED'].includes(o.status)).length,averageOrder:payable.length?round(total/payable.length):0,bins,topSellers,limited,profitEstimate:{profit:estimatedProfit,fees:round(estimatedFees),cogs:round(estimatedCOGS),pricedSales:round(pricedProductSales),pricedSkuCount,unpricedSkuCount,productLineCount,feeRate:0.06,partial:unpricedSkuCount>0||limited||productLineCount===0},recent:orders.slice(-14).reverse().map(o=>({id:o.order_id,status:o.status,subtotal:o.product_subtotal,currency:o.currency,date:o.created_at,shippingCost:shippingByOrder.get(`${o.shop_id}:${o.order_id}`)??null})),lastSync:all.reduce((a,o)=>o.synced_at&&o.synced_at>a?o.synced_at:a,'')});
+  return NextResponse.json({period,start,end:today,total,orderInsights,importedOrders:orders.length,paidOrders:payable.length,cancelledOrUnpaid:orders.filter(o=>['UNPAID','CANCELLED','CANCELED'].includes(o.status)).length,averageOrder:payable.length?round(total/payable.length):0,bins,topSellers,limited,profitEstimate:{profit:estimatedProfit,fees:round(estimatedFees),cogs:round(estimatedCOGS),pricedSales:round(pricedProductSales),pricedSkuCount,unpricedSkuCount,productLineCount,feeRate:0.06,shipping:estimatedSellerShipping,shippingCoveredOrders:coveredPricedOrderIds.length,shippingMissingOrders:Math.max(0,pricedOrderIds.size-coveredPricedOrderIds.length),shippingEstimated:shippingByOrder.size>0,partial:unpricedSkuCount>0||limited||productLineCount===0||pricedOrderIds.size!==coveredPricedOrderIds.length},recent:orders.slice(-14).reverse().map(o=>({id:o.order_id,status:o.status,subtotal:o.product_subtotal,currency:o.currency,date:o.created_at,shippingCost:shippingByOrder.get(`${o.shop_id}:${o.order_id}`)??null})),lastSync:all.reduce((a,o)=>o.synced_at&&o.synced_at>a?o.synced_at:a,'')});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Unable to load analytics'},{status:503});}
 }

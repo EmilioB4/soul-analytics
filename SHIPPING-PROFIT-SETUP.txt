@@ -1,0 +1,31 @@
+SOUL ANALYTICS — NET SHIPPING COST & PROFIT PATCH
+
+This ZIP is an update-only package. It contains 3 files that must be uploaded at the ROOT of your existing GitHub repo (main branch):
+  app/api/analytics/route.ts
+  app/api/tiktok/products/route.ts
+  app/page.tsx
+  app/ProductFinance.tsx
+
+FEATURES
+- TikTok settlement shipping_cost_amount is a signed amount: negative is a charge, positive is a credit. The dashboard inverts the sign for an expense-style display.
+- Estimated contribution profit = qualifying imported product sales - flat 6% estimate - saved COGS - available net seller shipping expense.
+- Missing shipping values are UNKNOWN, not zero, and the dashboard flags the number of qualifying orders without settled shipping figures.
+- Orders tab shows covered orders' net seller shipping total and average, not buyer checkout shipping.
+- Products & COGS has the same net-shipping deduction in the aggregate estimated contribution profit. Per-SKU estimated profits remain BEFORE shipping since shipping cost isn't allocated across SKUs.
+- No changes to TikTok authorization, data importer, credentials, or Supabase schema.
+
+LIMITATIONS
+- Finance importer only imports data from settled orders, and currently only processes a limited batch (15 eligible orders per invocation from newest 150 orders). Use the existing Financials tab's finance sync to populate more records. Some older records will remain inaccessible with the current importer.
+- TikTok may post adjustments or charges separately after a statement; those are not represented in this simple order-level calculation.
+- Missing finance records, external postage, refunds, affiliate charges, and other fees are excluded; the result is still a PARTIAL ESTIMATE, not accounting net income.
+- The 6% fee is a user-selected approximation, not a reading of TikTok's actual per-order fees.
+- The existing order product sales import, finance-sync API, and COGS entries have not been changed.
+
+TO INSTALL
+1. Confirm current Vercel deployment is working and keep your GitHub backup.
+2. Extract this ZIP. Upload the 'app' folder (the folder itself) at your GitHub repository ROOT, not inside a new folder. GitHub should show app/page.tsx and app/api/... files.
+3. Commit, then check Vercel > Deployments says Ready.
+4. Open Soul Analytics, select a period, and verify Orders > shipping coverage and Overview > estimated profit. Use Financials > import settlements for more shipping coverage.
+5. Compare a couple of known TikTok orders with Seller Center's finance breakdown before trusting the shipping numbers.
+
+IMPORTANT: No app secrets, private tokens or .env files are bundled. This code has NOT been tested with your live TikTok account or production-build dependencies.

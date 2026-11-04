@@ -11,7 +11,7 @@ export async function GET(req:NextRequest){
    client.from('tiktok_order_items').select('shop_id,order_id,sku_id,product_name,sku_name,sku_image,quantity,unit_sale_price,currency').eq('owner_id',user.id).limit(5000),
    client.from('tiktok_product_costs').select('shop_id,sku_id,unit_cogs').eq('owner_id',user.id).limit(5000),
    client.from('tiktok_orders').select('shop_id,order_id,status,created_at').eq('owner_id',user.id).limit(5000),
-   client.from('tiktok_order_finance').select('shop_id,order_id,settlement_amount,currency').eq('owner_id',user.id).limit(5000)
+   client.from('tiktok_order_finance').select('shop_id,order_id,settlement_amount,shipping_cost_amount,currency').eq('owner_id',user.id).limit(5000)
   ]);
   if(itemsResult.error||costsResult.error||ordersResult.error||finResult.error)return NextResponse.json({error:'Product/finance tables unavailable. Run supabase/product_finance.sql first.'},{status:503});
   const costs=new Map((costsResult.data||[]).map(c=>[`${c.shop_id}:${c.sku_id}`,Number(c.unit_cogs)]));
@@ -46,6 +46,16 @@ export async function GET(req:NextRequest){
    priced++;
    settledProfit+=Number(f.settlement_amount)-cogs.value;
   }
+  // Order-level net seller shipping is signed by TikTok (negative = cost, positive = credit).
+  // Only subtract shipping for orders with complete known COGS so missing product costs stay excluded.
+  let shippingExpense=0,shippingCoveredOrders=0,shippingMissingOrders=0;
+  for(const [orderKey,orderCost] of orderCosts){
+   if(!orderCost.complete)continue;
+   const finance=finances.get(orderKey);
+   if(finance?.currency==='USD'&&finance.shipping_cost_amount!=null&&Number.isFinite(Number(finance.shipping_cost_amount))){
+    shippingExpense-=Number(finance.shipping_cost_amount);shippingCoveredOrders++;
+   }else shippingMissingOrders++;
+  }
   let pricedProductCount=0,missingCostProductCount=0,estimatedProductSales=0,estimatedTikTokFees=0,estimatedCOGS=0,estimatedProfit=0;
   const listing=[...products.values()].sort((a,b)=>b.quantity-a.quantity).map(p=>{
    const valid=p.sales!==null&&p.currency==='USD'&&p.unitCost!==null;
@@ -56,7 +66,7 @@ export async function GET(req:NextRequest){
    if(valid){pricedProductCount++;estimatedProductSales+=p.sales!;estimatedTikTokFees+=fee!;estimatedCOGS+=cogs!;estimatedProfit+=profit!;}else missingCostProductCount++;
    return {...p,sales:p.sales===null?null:money(p.sales),avgPrice,estimatedFee:fee,totalCogs:cogs,estimatedProfit:profit};
   });
-  return NextResponse.json({products:listing,metrics:{settledOrderCount:settled,pricedSettledOrders:priced,missingCostSettledOrders:unpriced,settledContributionProfit:priced?money(settledProfit):null,profitIsPartial:priced!==settled,feeRate:0.06,estimatedProductSales:money(estimatedProductSales),estimatedTikTokFees:money(estimatedTikTokFees),estimatedCOGS:money(estimatedCOGS),estimatedProfit:pricedProductCount?money(estimatedProfit):null,pricedProductCount,missingCostProductCount,orderItems:(itemsResult.data||[]).length,financeRecords:(finResult.data||[]).length,limitReached:[itemsResult.data,ordersResult.data,finResult.data].some(x=>(x||[]).length===5000)}});
+  return NextResponse.json({products:listing,metrics:{settledOrderCount:settled,pricedSettledOrders:priced,missingCostSettledOrders:unpriced,settledContributionProfit:priced?money(settledProfit):null,profitIsPartial:priced!==settled,feeRate:0.06,estimatedProductSales:money(estimatedProductSales),estimatedTikTokFees:money(estimatedTikTokFees),estimatedCOGS:money(estimatedCOGS),estimatedProfit:pricedProductCount?money(estimatedProfit-shippingExpense):null,shippingExpense:money(shippingExpense),shippingCoveredOrders,shippingMissingOrders,pricedProductCount,missingCostProductCount,orderItems:(itemsResult.data||[]).length,financeRecords:(finResult.data||[]).length,limitReached:[itemsResult.data,ordersResult.data,finResult.data].some(x=>(x||[]).length===5000)}});
  }catch{return NextResponse.json({error:'Unable to retrieve product profitability'},{status:503});}
 }
 export async function PUT(req:NextRequest){
