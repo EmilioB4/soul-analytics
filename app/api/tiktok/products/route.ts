@@ -17,7 +17,8 @@ export async function GET(req:NextRequest){
   const costs=new Map((costsResult.data||[]).map(c=>[`${c.shop_id}:${c.sku_id}`,Number(c.unit_cogs)]));
   const orders=new Map((ordersResult.data||[]).map(o=>[`${o.shop_id}:${o.order_id}`,o]));
   const finances=new Map((finResult.data||[]).map(f=>[`${f.shop_id}:${f.order_id}`,f]));
-  type Prod={shopId:string;skuId:string;name:string;variant:string;image:string|null;quantity:number;sales:number|null;unitCost:number|null;currency:string;estimatedProfit:number|null;estimatedFee:number|null;totalCogs:number|null;avgPrice:number|null};
+  type OrderDetail={orderId:string;date:string|null;status:string;quantity:number;unitPrice:number|null;subtotal:number|null;currency:string};
+  type Prod={shopId:string;skuId:string;name:string;variant:string;image:string|null;quantity:number;sales:number|null;unitCost:number|null;currency:string;estimatedProfit:number|null;estimatedFee:number|null;totalCogs:number|null;avgPrice:number|null;orders:OrderDetail[]};
   const products=new Map<string,Prod>();
   const orderCosts=new Map<string,{value:number;complete:boolean}>();
   for(const line of itemsResult.data||[]){
@@ -27,7 +28,8 @@ export async function GET(req:NextRequest){
    const count=Number(line.quantity)||1;
    const unitCost=costs.get(key)??null;
    const unitPrice=line.unit_sale_price==null?null:Number(line.unit_sale_price);
-   const p=products.get(key)||{shopId:line.shop_id,skuId:line.sku_id,name:line.product_name,variant:line.sku_name||'',image:line.sku_image||null,quantity:0,sales:0,unitCost,currency:line.currency,estimatedProfit:null,estimatedFee:null,totalCogs:null,avgPrice:null};
+   const p=products.get(key)||{shopId:line.shop_id,skuId:line.sku_id,name:line.product_name,variant:line.sku_name||'',image:line.sku_image||null,quantity:0,sales:0,unitCost,currency:line.currency,estimatedProfit:null,estimatedFee:null,totalCogs:null,avgPrice:null,orders:[]};
+   p.orders.push({orderId:String(line.order_id),date:ok.created_at??null,status:String(ok.status||'UNKNOWN'),quantity:count,unitPrice:unitPrice===null||!Number.isFinite(unitPrice)?null:money(unitPrice),subtotal:unitPrice===null||!Number.isFinite(unitPrice)?null:money(count*unitPrice),currency:String(line.currency||'')});
    p.quantity+=count;
    if(unitPrice==null||p.sales==null)p.sales=null;else p.sales+=count*unitPrice;
    if(!p.image&&line.sku_image)p.image=line.sku_image;
@@ -64,6 +66,7 @@ export async function GET(req:NextRequest){
    const cogs=valid?money(p.quantity*p.unitCost!):null;
    const profit=valid?money(p.sales!-fee!-cogs!):null;
    if(valid){pricedProductCount++;estimatedProductSales+=p.sales!;estimatedTikTokFees+=fee!;estimatedCOGS+=cogs!;estimatedProfit+=profit!;}else missingCostProductCount++;
+   p.orders.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
    return {...p,sales:p.sales===null?null:money(p.sales),avgPrice,estimatedFee:fee,totalCogs:cogs,estimatedProfit:profit};
   });
   return NextResponse.json({products:listing,metrics:{settledOrderCount:settled,pricedSettledOrders:priced,missingCostSettledOrders:unpriced,settledContributionProfit:priced?money(settledProfit):null,profitIsPartial:priced!==settled,feeRate:0.06,estimatedProductSales:money(estimatedProductSales),estimatedTikTokFees:money(estimatedTikTokFees),estimatedCOGS:money(estimatedCOGS),estimatedProfit:pricedProductCount?money(estimatedProfit-shippingExpense):null,shippingExpense:money(shippingExpense),shippingCoveredOrders,shippingMissingOrders,pricedProductCount,missingCostProductCount,orderItems:(itemsResult.data||[]).length,financeRecords:(finResult.data||[]).length,limitReached:[itemsResult.data,ordersResult.data,finResult.data].some(x=>(x||[]).length===5000)}});
