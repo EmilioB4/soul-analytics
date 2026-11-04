@@ -28,7 +28,7 @@ export async function GET(req:NextRequest){
    const count=Number(line.quantity)||1;
    const unitCost=costs.get(key)??null;
    const unitPrice=line.unit_sale_price==null?null:Number(line.unit_sale_price);
-   const p=products.get(key)||{shopId:line.shop_id,skuId:line.sku_id,name:line.product_name,variant:line.sku_name||'',image:line.sku_image||null,quantity:0,sales:0,unitCost,currency:line.currency,estimatedProfit:null,estimatedFee:null,totalCogs:null,avgPrice:null,orders:[]};
+   const p:Prod=products.get(key)||{shopId:line.shop_id,skuId:line.sku_id,name:line.product_name,variant:line.sku_name||'',image:line.sku_image||null,quantity:0,sales:0,unitCost,currency:line.currency,estimatedProfit:null,estimatedFee:null,totalCogs:null,avgPrice:null,orders:[]};
    p.orders.push({orderId:String(line.order_id),date:ok.created_at??null,status:String(ok.status||'UNKNOWN'),quantity:count,unitPrice:unitPrice===null||!Number.isFinite(unitPrice)?null:money(unitPrice),subtotal:unitPrice===null||!Number.isFinite(unitPrice)?null:money(count*unitPrice),currency:String(line.currency||'')});
    p.quantity+=count;
    if(unitPrice==null||p.sales==null)p.sales=null;else p.sales+=count*unitPrice;
