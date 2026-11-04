@@ -29,6 +29,22 @@ export async function POST(req:NextRequest){
     const {error}=await client.from('tiktok_orders').upsert(rows,{onConflict:'owner_id,shop_id,order_id'});
     if(error)throw Error('Cannot save orders. Run the bundled tiktok_orders.sql migration first.');
    }
+   // Import the SKU-level records needed for editable product costs.
+   // Each line has its own stable TikTok identifier.
+   const lines=orders.flatMap(o=>(Array.isArray((o as any).line_items)?(o as any).line_items:[]).filter((l:any)=>l&&l.id&&l.sku_id).map((l:any)=>({
+    owner_id:user.id,shop_id:String(shop.id),order_id:String(o.id),line_id:String(l.id),
+    sku_id:String(l.sku_id),product_id:l.product_id?String(l.product_id):null,
+    product_name:String(l.product_name||'Unnamed product'),sku_name:l.sku_name?String(l.sku_name):null,
+    sku_image:typeof l.sku_image==='string'&&l.sku_image.startsWith('https://')?l.sku_image:null,
+    // TikTok order lines usually represent a single unit; use documented quantity if available.
+    quantity:Number.isSafeInteger(Number(l.quantity))&&Number(l.quantity)>0?Number(l.quantity):1,
+    unit_sale_price:l.sale_price==null||!Number.isFinite(Number(l.sale_price))?null:Number(l.sale_price),
+    currency:String(o.payment?.currency||'USD'),synced_at:new Date().toISOString()
+   })));
+   if(lines.length){
+    const {error:lineError}=await client.from('tiktok_order_items').upsert(lines,{onConflict:'owner_id,shop_id,order_id,line_id'});
+    if(lineError)throw Error('Could not save order product lines. Run product_finance.sql before syncing.');
+   }
    total+=rows.length;pages++;
    pageToken=String(result?.next_page_token||'');
    if(!pageToken){complete=true;break;}
