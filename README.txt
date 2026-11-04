@@ -1,0 +1,1 @@
+Soul Analytics four-card layout fix. Upload the app folder at your GitHub repository root to replace app/globals.css. On desktop widths 1050px and above, the four overview cards stay on one row. Smaller screens retain responsive two-column layout. No database or backend changes.

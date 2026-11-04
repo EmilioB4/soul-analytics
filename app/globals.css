@@ -86,10 +86,10 @@ input:focus { border-color:#b7a2ff; }
 .brandLogo,.loginLogo { border-color:#696177; }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; transition-duration:0.01ms!important; animation-duration:0.01ms!important; } }
 
-/* TikTok Shop Revenue Overview and estimated profit cards */
-@media (min-width: 1150px) {
-  .metricGrid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+/* Overview and Orders: four KPI cards across on desktop.
+   Preserve two columns on tablets and phones to avoid clipping. */
+@media (min-width: 1050px) {
+  .metricGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .metricCard { min-width: 0; }
+  .metricValue { overflow-wrap: anywhere; font-size: clamp(20px, 2vw, 29px); }
 }
-.profitBubble { border-color: #776799; background: linear-gradient(145deg,#2c2940,#1f202b); }
-.profitBubble .metricValue { color:#d4c5ff; }
-.sideNav .navItem { line-height: 1.3; }
