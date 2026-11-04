@@ -1,7 +1,7 @@
-Soul Analytics — spacing-only adjustment
+Soul Stream Summary card — raise metric numbers slightly.
 
-Replace exactly app/StreamSummaryCard.tsx at the repository root.
+Only app/StreamSummaryCard.tsx is changed.
+Metric value baseline moved 18px upward (y+177 -> y+159).
+Icons, labels, supporting text, logo, Top 3 ranking, calculations and layout are unchanged.
 
-Change: labels (Gross Sales, Estimated Profit, Units Sold, Orders) move 29 pixels upward, directly under the upper-left icons, adding breathing room above the centered large numbers.
-
-No other code, calculations, cards, or design elements changed.
+Upload the app folder at the root of your GitHub repo (not a nested project folder), commit, and verify the Vercel deployment.
