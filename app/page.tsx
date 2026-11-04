@@ -4,6 +4,7 @@ import {supabase} from './supabase';
 import ProductFinance from './ProductFinance';
 import StreamSummaryCard from './StreamSummaryCard';
 import PlaidBank from './PlaidBank';
+import TikTokOfficialPayouts from './TikTokOfficialPayouts';
 type Period='day'|'week'|'month'|'ytd'|'custom';
 type Tab='overview'|'orders'|'products'|'finance'|'payouts'|'settings';
 type Analytics={payoutEstimate?:{expected:number;assumedFee:number;recordedShipping:number;missingShippingOrders:number;settledOrderAmount:number|null;settledOrderCount:number;unsettledOrderCount:number;actualBankPayout:number|null;partial:boolean};orderInsights?:{cancelledCount:number;cancelledSubtotal:number;refundedStatusCount:number;shippingTotal:number|null;shippingAverage:number|null;shippingOrderCount:number;shippingIncomplete:boolean};profitEstimate?:{profit:number|null;fees:number;cogs:number;pricedSales:number;pricedSkuCount:number;unpricedSkuCount:number;productLineCount:number;feeRate:number;shipping:number;shippingCoveredOrders:number;shippingMissingOrders:number;shippingEstimated:boolean;partial:boolean};period:Period;start:string;end:string;total:number;importedOrders:number;paidOrders:number;unitsSold:number;cancelledOrUnpaid:number;averageOrder:number;bins:{key:string;label:string;value:number;orders:number}[];topSellers:{name:string;image:string|null;skuId:string;quantity:number;sales:number}[];limited:boolean;recent:{id:string;status:string;subtotal:number|null;currency:string;date:string|null;shippingCost:number|null}[];lastSync:string};
@@ -92,7 +93,7 @@ export default function Home(){
     <p className="muted" style={{fontSize:12,marginTop:20,marginBottom:0}}>TikTok may combine many streams in one bank payment, or withhold funds as reserves. Settlement sums are not verified deposits.</p>
    </section>
   </div>
-  <section className="surface quickSection"><div><div className="eyebrow">FUTURE CONNECTION</div><h2>TikTok's own expected payout</h2><p className="muted">The current importer supports final settled order records. TikTok's official per-order *unsettled estimated* settlement amounts and actual bank payout records are not connected yet; they will appear here when those endpoints are implemented and verified.</p></div><button className="outlineBtn" onClick={()=>setTab('finance')}>Open financials ↗</button></section>
+  {analytics&&<TikTokOfficialPayouts start={analytics.start} end={analytics.end}/>} 
   <PlaidBank/>
   {analytics?.limited&&<div className="alertBox">Reporting record limit reached; amounts may be incomplete.</div>}
  </>}
