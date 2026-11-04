@@ -1,0 +1,17 @@
+Soul Analytics — Custom date range
+
+Upload the app folder at your GitHub repository root. This patch updates only app/page.tsx and app/api/analytics/route.ts.
+
+New functionality:
+- Day / week / month / YTD presets stay intact.
+- Custom range lets you choose inclusive start/end dates and click Apply dates.
+- Overview and Orders use the chosen period, including the four sales/profit metrics, top sellers, sales graph and order table.
+- Date filtering uses America/New_York calendar dates; the API caps the interval at 730 days.
+- Graph buckets: hourly for one day, daily for 2–45 days, monthly above 45 days.
+- Only previously imported orders are available; custom range does not trigger historical imports.
+
+Backend finance/COGS/order routes are unchanged.
+
+No CSS replacement necessary; date-picker styles are included in the component.
+
+This package has NOT been production built or tested against live data.
