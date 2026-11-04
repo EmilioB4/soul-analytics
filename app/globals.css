@@ -85,3 +85,11 @@ input:focus { border-color:#b7a2ff; }
 .mobileNav button.selected { background:linear-gradient(105deg,#9ed6ff,#b7a2ff);color:#181b24; }
 .brandLogo,.loginLogo { border-color:#696177; }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; transition-duration:0.01ms!important; animation-duration:0.01ms!important; } }
+
+/* TikTok Shop Revenue Overview and estimated profit cards */
+@media (min-width: 1150px) {
+  .metricGrid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+.profitBubble { border-color: #776799; background: linear-gradient(145deg,#2c2940,#1f202b); }
+.profitBubble .metricValue { color:#d4c5ff; }
+.sideNav .navItem { line-height: 1.3; }

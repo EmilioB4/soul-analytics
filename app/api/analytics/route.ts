@@ -39,6 +39,7 @@ export async function GET(req:NextRequest){
   else for(let k=start;k<=today;k=addDays(k,1)){bucketMap.set(k,{label:period==='week'?new Date(`${k}T12:00:00Z`).toLocaleDateString('en-US',{weekday:'short',timeZone:'UTC'}):String(Number(k.slice(-2))),value:0,orders:0});}
   for(const o of payable){const p=parts(new Date(o.created_at));const date=`${p.year}-${p.month}-${p.day}`;const key=period==='day'?p.hour:period==='ytd'?date.slice(0,7):date;const b=bucketMap.get(key);if(b){b.value+=Number(o.product_subtotal);b.orders++;}}
   let topSellers:{name:string;image:string|null;skuId:string;quantity:number;sales:number}[]=[];
+  let estimatedProfit:number|null=null,estimatedFees=0,estimatedCOGS=0,pricedProductSales=0,unpricedSkuCount=0,pricedSkuCount=0,productLineCount=0;
   if(saleIds.size){
    const lines:any[]=[];
    for(let offset=0;offset<10000;offset+=1000){
@@ -49,11 +50,23 @@ export async function GET(req:NextRequest){
     if(data.length<1000)break;
     if(offset===9000)limited=true;
    }
+   const {data:costRows,error:costError}=await client.from('tiktok_product_costs').select('shop_id,sku_id,unit_cogs').eq('owner_id',user.id).limit(5000);
+   if(costError)throw Error('Unable to read saved product costs');
+   if((costRows||[]).length===5000)limited=true;
+   const costs=new Map((costRows||[]).map(c=>[`${c.shop_id}:${c.sku_id}`,Number(c.unit_cogs)]));
+   const skuStatus=new Map<string,boolean>();
    const top=new Map<string,{name:string;image:string|null;skuId:string;quantity:number;sales:number}>();
-   for(const line of lines){if(!saleIds.has(`${line.shop_id}:${line.order_id}`))continue;const key=`${line.shop_id}:${line.sku_id}`;const item=top.get(key)||{name:line.product_name||'Unnamed product',image:line.sku_image||null,skuId:line.sku_id,quantity:0,sales:0};const qty=Number(line.quantity)||0;item.quantity+=qty;if(line.currency==='USD'&&line.unit_sale_price!=null)item.sales+=qty*Number(line.unit_sale_price);top.set(key,item);}
+   for(const line of lines){if(!saleIds.has(`${line.shop_id}:${line.order_id}`))continue;productLineCount++;const key=`${line.shop_id}:${line.sku_id}`;const item=top.get(key)||{name:line.product_name||'Unnamed product',image:line.sku_image||null,skuId:line.sku_id,quantity:0,sales:0};const qty=Number(line.quantity)||0;item.quantity+=qty;if(line.currency==='USD'&&line.unit_sale_price!=null)item.sales+=qty*Number(line.unit_sale_price);top.set(key,item);
+    const cost=costs.get(key);
+    const priced=line.currency==='USD'&&line.unit_sale_price!=null&&Number.isFinite(Number(line.unit_sale_price))&&cost!==undefined&&Number.isFinite(cost);
+    skuStatus.set(key,(skuStatus.get(key)??true)&&priced);
+    if(priced){const sales=qty*Number(line.unit_sale_price);pricedProductSales+=sales;estimatedFees+=sales*0.06;estimatedCOGS+=qty*cost;}
+   }
+   pricedSkuCount=[...skuStatus.values()].filter(Boolean).length;unpricedSkuCount=[...skuStatus.values()].filter(v=>!v).length;
+   estimatedProfit=pricedSkuCount?round(pricedProductSales-estimatedFees-estimatedCOGS):null;
    topSellers=[...top.values()].sort((a,b)=>b.quantity-a.quantity).slice(0,6).map(x=>({...x,sales:round(x.sales)}));
   }
   const bins=[...bucketMap.entries()].map(([key,b])=>({...b,key,value:round(b.value)}));
-  return NextResponse.json({period,start,end:today,total,importedOrders:orders.length,paidOrders:payable.length,cancelledOrUnpaid:orders.filter(o=>['UNPAID','CANCELLED'].includes(o.status)).length,averageOrder:payable.length?round(total/payable.length):0,bins,topSellers,limited,recent:orders.slice(-14).reverse().map(o=>({id:o.order_id,status:o.status,subtotal:o.product_subtotal,currency:o.currency,date:o.created_at})),lastSync:all.reduce((a,o)=>o.synced_at&&o.synced_at>a?o.synced_at:a,'')});
+  return NextResponse.json({period,start,end:today,total,importedOrders:orders.length,paidOrders:payable.length,cancelledOrUnpaid:orders.filter(o=>['UNPAID','CANCELLED'].includes(o.status)).length,averageOrder:payable.length?round(total/payable.length):0,bins,topSellers,limited,profitEstimate:{profit:estimatedProfit,fees:round(estimatedFees),cogs:round(estimatedCOGS),pricedSales:round(pricedProductSales),pricedSkuCount,unpricedSkuCount,productLineCount,feeRate:0.06,partial:unpricedSkuCount>0||limited||productLineCount===0},recent:orders.slice(-14).reverse().map(o=>({id:o.order_id,status:o.status,subtotal:o.product_subtotal,currency:o.currency,date:o.created_at})),lastSync:all.reduce((a,o)=>o.synced_at&&o.synced_at>a?o.synced_at:a,'')});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Unable to load analytics'},{status:503});}
 }
