@@ -48,6 +48,7 @@ export async function GET(req:NextRequest){
   for(const o of payable){const p=parts(new Date(o.created_at));const date=`${p.year}-${p.month}-${p.day}`;const key=group==='hour'?p.hour:group==='month'?date.slice(0,7):date;const b=bucketMap.get(key);if(b){b.value+=Number(o.product_subtotal);b.orders++;}}
   let topSellers:{name:string;image:string|null;skuId:string;quantity:number;sales:number}[]=[];
   let unitsSold=0;
+  let topProfitItems:{skuId:string;name:string;image:string|null;quantity:number;profit:number}[]=[];
   let estimatedProfit:number|null=null,estimatedFees=0,estimatedCOGS=0,pricedProductSales=0,unpricedSkuCount=0,pricedSkuCount=0,productLineCount=0;
   const fullyPricedOrderIds=new Set<string>();
   const ordersWithUnpricedLines=new Set<string>();
@@ -66,6 +67,7 @@ export async function GET(req:NextRequest){
    if((costRows||[]).length===5000)limited=true;
    const costs=new Map((costRows||[]).map(c=>[`${c.shop_id}:${c.sku_id}`,Number(c.unit_cogs)]));
    const skuStatus=new Map<string,boolean>();
+   const skuProfits=new Map<string,{skuId:string;name:string;image:string|null;quantity:number;profit:number}>();
    const top=new Map<string,{name:string;image:string|null;skuId:string;quantity:number;sales:number}>();
    for(const line of lines){if(!saleIds.has(`${line.shop_id}:${line.order_id}`))continue;productLineCount++;const key=`${line.shop_id}:${line.sku_id}`;const item=top.get(key)||{name:line.product_name||'Unnamed product',image:line.sku_image||null,skuId:line.sku_id,quantity:0,sales:0};const qty=Number(line.quantity)||0;unitsSold+=qty;item.quantity+=qty;if(line.currency==='USD'&&line.unit_sale_price!=null)item.sales+=qty*Number(line.unit_sale_price);top.set(key,item);
     const cost=costs.get(key);
@@ -73,8 +75,12 @@ export async function GET(req:NextRequest){
     const priced=line.currency==='USD'&&line.unit_sale_price!=null&&Number.isFinite(Number(line.unit_sale_price))&&cost!==undefined&&Number.isFinite(cost);
     skuStatus.set(key,(skuStatus.get(key)??true)&&priced);
     if(priced)fullyPricedOrderIds.add(orderKey);else ordersWithUnpricedLines.add(orderKey);
-    if(priced){const sales=qty*Number(line.unit_sale_price);pricedProductSales+=sales;estimatedFees+=sales*0.06;estimatedCOGS+=qty*cost;}
+    if(priced){const sales=qty*Number(line.unit_sale_price);pricedProductSales+=sales;estimatedFees+=sales*0.06;estimatedCOGS+=qty*cost;
+     const previous=skuProfits.get(key)||{skuId:line.sku_id,name:line.product_name||'Unnamed product',image:line.sku_image||null,quantity:0,profit:0};
+     previous.quantity+=qty;previous.profit+=sales*0.94-qty*cost;skuProfits.set(key,previous);
+    }
    }
+   topProfitItems=[...skuProfits.entries()].filter(([key])=>skuStatus.get(key)===true).map(([,p])=>({...p,profit:round(p.profit)})).sort((a,b)=>b.profit-a.profit).slice(0,3);
    pricedSkuCount=[...skuStatus.values()].filter(Boolean).length;unpricedSkuCount=[...skuStatus.values()].filter(v=>!v).length;
    estimatedProfit=pricedProductSales>0?round(pricedProductSales-estimatedFees-estimatedCOGS):null;
    topSellers=[...top.values()].sort((a,b)=>b.quantity-a.quantity).slice(0,6).map(x=>({...x,sales:round(x.sales)}));
@@ -108,6 +114,6 @@ export async function GET(req:NextRequest){
   const refundedStatus=orders.filter(o=>/REFUND/i.test(String(o.status)));
   const orderInsights={cancelledCount:cancelled.length,cancelledSubtotal:round(cancelled.filter(o=>o.currency==='USD'&&o.product_subtotal!=null).reduce((n,o)=>n+Number(o.product_subtotal),0)),refundedStatusCount:refundedStatus.length,shippingTotal,shippingAverage:shippingTotal!=null?round(shippingTotal/shippingByOrder.size):null,shippingOrderCount:shippingByOrder.size,shippingIncomplete:shippingByOrder.size<payable.length||limited};
   const bins=[...bucketMap.entries()].map(([key,b])=>({...b,key,value:round(b.value)}));
-  return NextResponse.json({period,start,end,total,unitsSold,orderInsights,importedOrders:orders.length,paidOrders:payable.length,cancelledOrUnpaid:orders.filter(o=>['UNPAID','CANCELLED','CANCELED'].includes(o.status)).length,averageOrder:payable.length?round(total/payable.length):0,bins,topSellers,limited,profitEstimate:{profit:estimatedProfit,fees:round(estimatedFees),cogs:round(estimatedCOGS),pricedSales:round(pricedProductSales),pricedSkuCount,unpricedSkuCount,productLineCount,feeRate:0.06,shipping:estimatedSellerShipping,shippingCoveredOrders:coveredPricedOrderIds.length,shippingMissingOrders:Math.max(0,pricedOrderIds.size-coveredPricedOrderIds.length),shippingEstimated:shippingByOrder.size>0,partial:unpricedSkuCount>0||limited||productLineCount===0||pricedOrderIds.size!==coveredPricedOrderIds.length},recent:orders.slice(-14).reverse().map(o=>({id:o.order_id,status:o.status,subtotal:o.product_subtotal,currency:o.currency,date:o.created_at,shippingCost:shippingByOrder.get(`${o.shop_id}:${o.order_id}`)??null})),lastSync:all.reduce((a,o)=>o.synced_at&&o.synced_at>a?o.synced_at:a,'')});
+  return NextResponse.json({period,start,end,total,unitsSold,orderInsights,importedOrders:orders.length,paidOrders:payable.length,cancelledOrUnpaid:orders.filter(o=>['UNPAID','CANCELLED','CANCELED'].includes(o.status)).length,averageOrder:payable.length?round(total/payable.length):0,bins,topSellers,topProfitItems,limited,profitEstimate:{profit:estimatedProfit,fees:round(estimatedFees),cogs:round(estimatedCOGS),pricedSales:round(pricedProductSales),pricedSkuCount,unpricedSkuCount,productLineCount,feeRate:0.06,shipping:estimatedSellerShipping,shippingCoveredOrders:coveredPricedOrderIds.length,shippingMissingOrders:Math.max(0,pricedOrderIds.size-coveredPricedOrderIds.length),shippingEstimated:shippingByOrder.size>0,partial:unpricedSkuCount>0||limited||productLineCount===0||pricedOrderIds.size!==coveredPricedOrderIds.length},recent:orders.slice(-14).reverse().map(o=>({id:o.order_id,status:o.status,subtotal:o.product_subtotal,currency:o.currency,date:o.created_at,shippingCost:shippingByOrder.get(`${o.shop_id}:${o.order_id}`)??null})),lastSync:all.reduce((a,o)=>o.synced_at&&o.synced_at>a?o.synced_at:a,'')});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Unable to load analytics'},{status:503});}
 }

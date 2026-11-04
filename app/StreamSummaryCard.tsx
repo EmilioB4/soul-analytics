@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 
-type CardData={start:string;end:string;total:number;paidOrders:number;unitsSold:number;topSellers:{name:string;quantity:number;sales:number;image:string|null}[];profitEstimate?:{profit:number|null;partial:boolean;unpricedSkuCount:number;shippingMissingOrders:number};limited:boolean};
+type CardData={start:string;end:string;total:number;paidOrders:number;unitsSold:number;topSellers:{name:string;quantity:number;sales:number;image:string|null}[];topProfitItems?:{skuId:string;name:string;image:string|null;quantity:number;profit:number}[];profitEstimate?:{profit:number|null;partial:boolean;unpricedSkuCount:number;shippingMissingOrders:number};limited:boolean};
 const usd=(n:number)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2}).format(n);
 const compactMoney=(n:number)=>usd(n);
 const shortDate=(s:string)=>new Date(`${s}T12:00:00Z`).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
@@ -30,40 +30,69 @@ function feather(ctx:CanvasRenderingContext2D,x:number,y:number,scale:number,ang
  ctx.fillStyle=fill;ctx.beginPath();ctx.moveTo(-90,68);ctx.bezierCurveTo(-55,-25,13,-75,84,-102);ctx.bezierCurveTo(91,-28,53,39,-90,68);ctx.closePath();ctx.fill();
  ctx.strokeStyle='#dddaff';ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(-108,82);ctx.quadraticCurveTo(2,-14,84,-102);ctx.stroke();ctx.restore();
 }
-function drawCard(ctx:CanvasRenderingContext2D,data:CardData,logo:HTMLImageElement|null,product:HTMLImageElement|null){
+function clippedText(ctx:CanvasRenderingContext2D,value:string,maxWidth:number,size:number,min=19){
+ ctx.font=`600 ${size}px Arial, Helvetica, sans-serif`;
+ if(ctx.measureText(value).width<=maxWidth)return {text:value,size};
+ while(size>min&&ctx.measureText(value).width>maxWidth){size--;ctx.font=`600 ${size}px Arial, Helvetica, sans-serif`}
+ if(ctx.measureText(value).width<=maxWidth)return {text:value,size};
+ let shortened=value;while(shortened.length>1&&ctx.measureText(shortened+'…').width>maxWidth)shortened=shortened.slice(0,-1);
+ return {text:shortened+'…',size};
+}
+function slab(ctx:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,r=25){
+ rounded(ctx,x,y,w,h,r);
+ const bg=ctx.createLinearGradient(x,y,x+w,y+h);bg.addColorStop(0,'#282930');bg.addColorStop(.55,'#1c1e24');bg.addColorStop(1,'#12141a');
+ ctx.fillStyle=bg;ctx.fill();ctx.strokeStyle='rgba(199,205,221,.45)';ctx.lineWidth=1.5;ctx.stroke();
+}
+function drawCard(ctx:CanvasRenderingContext2D,data:CardData,logo:HTMLImageElement|null,productImages:(HTMLImageElement|null)[]){
  const W=1600,H=900;ctx.clearRect(0,0,W,H);
- let g=ctx.createLinearGradient(0,0,W,H);g.addColorStop(0,'#15171d');g.addColorStop(.54,'#0d1016');g.addColorStop(1,'#181922');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
- glow(ctx,75,40,'rgba(112,169,241,.16)',530);glow(ctx,1520,870,'rgba(199,135,222,.15)',540);
- const accent=ctx.createLinearGradient(0,0,W,0);accent.addColorStop(0,'#8fcfff');accent.addColorStop(.46,'#bdaafc');accent.addColorStop(.85,'#f5c4e4');accent.addColorStop(1,'#ffe5bb');
- ctx.lineWidth=2;ctx.strokeStyle=accent;ctx.globalAlpha=.42;ctx.beginPath();ctx.moveTo(0,140);ctx.bezierCurveTo(210,10,245,-30,400,-60);ctx.stroke();ctx.beginPath();ctx.moveTo(1200,930);ctx.bezierCurveTo(1470,860,1490,770,1670,730);ctx.stroke();ctx.globalAlpha=1;
- // Quiet feather accents echo Soul's mark without competing with the content.
- feather(ctx,1506,87,.62,.58,.12);feather(ctx,1570,171,.46,.93,.10);
- feather(ctx,95,840,.50,-2.57,.10);feather(ctx,15,770,.37,-2.28,.08);
- if(logo){ctx.drawImage(logo,680,12,240,116);}
- else{line(ctx,'soul',800,99,{size:70,weight:800,align:'center',color:'#eac8f8'})}
- line(ctx,'STREAM SUMMARY',800,191,{size:33,weight:700,align:'center',color:'#f1f1f5'});
+ const bg=ctx.createLinearGradient(0,0,W,H);bg.addColorStop(0,'#17191e');bg.addColorStop(.35,'#0a0c11');bg.addColorStop(1,'#14151b');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+ glow(ctx,0,0,'rgba(100,174,255,.16)',550);glow(ctx,1600,850,'rgba(191,132,235,.13)',650);
+ // Iridescent foil and collectible-slab motifs inspired by Soul's banner.
+ ctx.save();ctx.lineCap='round';let foil=ctx.createLinearGradient(0,0,480,210);foil.addColorStop(0,'#9bcfff');foil.addColorStop(.43,'#d8aafd');foil.addColorStop(.8,'#ffe5bd');foil.addColorStop(1,'#90ddf8');
+ for(let j=0;j<3;j++){ctx.beginPath();ctx.moveTo(-80,210-j*28);ctx.bezierCurveTo(55,82-j*18,220,16-j*15,420,-90-j*9);ctx.strokeStyle=foil;ctx.lineWidth=j===0?8:2;ctx.globalAlpha=j===0?.31:.62;ctx.stroke()}ctx.restore();
+ ctx.save();ctx.translate(1600,900);ctx.rotate(Math.PI);for(let j=0;j<3;j++){ctx.beginPath();ctx.moveTo(-70,155-j*17);ctx.bezierCurveTo(90,65-j*10,190,-25-j*8,350,-80-j*7);ctx.strokeStyle=foil;ctx.lineWidth=j===0?7:2;ctx.globalAlpha=j===0?.30:.58;ctx.stroke()}ctx.restore();
+ // Subtle foil card outlines in the corners; these are decorative, not product photos.
+ ctx.save();ctx.translate(1510,38);ctx.rotate(-.30);rounded(ctx,-10,-135,260,235,22);ctx.strokeStyle='rgba(206,208,230,.21)';ctx.lineWidth=4;ctx.stroke();rounded(ctx,9,-113,260,235,22);ctx.strokeStyle='rgba(146,211,251,.24)';ctx.stroke();ctx.restore();
+ if(logo){ctx.drawImage(logo,700,7,200,101)}else line(ctx,'soul',800,91,{size:66,weight:800,align:'center'});
+ line(ctx,'STREAM SUMMARY',800,147,{size:42,weight:700,align:'center',color:'#f5f5f8'});
  const dateLabel=data.start===data.end?shortDate(data.start):`${shortDate(data.start)} — ${shortDate(data.end)}`;
- line(ctx,dateLabel,800,231,{size:24,color:'#a9afc0',align:'center'});
- // four primary figures
- const metrics=[{label:'GROSS SALES',value:compactMoney(data.total),sub:'Product sales subtotal'},{label:'ESTIMATED PROFIT',value:data.profitEstimate?.profit==null?'Unavailable':compactMoney(data.profitEstimate.profit),sub:data.profitEstimate?.partial?'Partial — costs missing':'6% fee + saved costs'},{label:'UNITS SOLD',value:String(data.unitsSold),sub:'From imported order items'},{label:'ORDERS',value:String(data.paidOrders),sub:'Counted orders'}];
- const gap=19,w= (1472-gap*3)/4,top=292,h=285;
- metrics.forEach((m,i)=>{const x=64+i*(w+gap);rounded(ctx,x,top,w,h,25);g=ctx.createLinearGradient(x,top,x+w,top+h);g.addColorStop(0,'#242831');g.addColorStop(1,'#171a22');ctx.fillStyle=g;ctx.fill();ctx.strokeStyle='#454753';ctx.lineWidth=2;ctx.stroke();icon(ctx,(['sales','profit','units','orders'] as const)[i],x+26,top+26);line(ctx,m.label,x+26,top+118,{size:21,color:'#c4c8d4',weight:700});const fs=shrink(ctx,m.value,w-50,m.value.length>11?48:63,27);line(ctx,m.value,x+26,top+192,{size:fs,weight:700,color:'#f9f9fb'});line(ctx,m.sub,x+26,top+241,{size:17,color:'#979eae'});});
- // top seller block
- rounded(ctx,64,612,1472,211,28);g=ctx.createLinearGradient(64,612,1536,823);g.addColorStop(0,'#262932');g.addColorStop(1,'#1b1e27');ctx.fillStyle=g;ctx.fill();ctx.strokeStyle='#535463';ctx.lineWidth=2;ctx.stroke();
- line(ctx,'TOP SELLER',103,682,{size:23,weight:700,color:'#c2c7d3'});
- const seller=data.topSellers?.[0];if(seller){const name=seller.name||'Unnamed product';const maxW=product?875:1150;const font=shrink(ctx,name,maxW,48,26);line(ctx,name,103,742,{size:font,weight:700,maxWidth:maxW});line(ctx,`${seller.quantity.toLocaleString()} UNITS SOLD`,103,788,{size:22,color:'#b2b9ca'});
- if(product){rounded(ctx,1325,638,178,160,18);ctx.save();ctx.clip();ctx.fillStyle='#fff';ctx.fill();ctx.drawImage(product,1325,638,178,160);ctx.restore();}}
- else {line(ctx,'No eligible product sales in this period',103,752,{size:35,color:'#aeb5c4'});}
- line(ctx,'SOUL ANALYTICS',64,869,{size:17,color:'#8c93a5',weight:700});line(ctx,'Based on imported records · Estimate, not final accounting profit',1536,869,{size:16,color:'#8c93a5',align:'right'});
+ line(ctx,dateLabel,800,188,{size:25,align:'center',color:'#b6bccd'});
+ const metrics=[{label:'GROSS SALES',value:compactMoney(data.total),sub:'Product sales subtotal'},{label:'ESTIMATED PROFIT',value:data.profitEstimate?.profit==null?'Unavailable':compactMoney(data.profitEstimate.profit),sub:data.profitEstimate?.partial?'Partial — costs missing':'6% fee + saved COGS'},{label:'UNITS SOLD',value:String(data.unitsSold),sub:'Eligible imported items'},{label:'ORDERS',value:String(data.paidOrders),sub:'Counted orders'}];
+ const x0=73,gap=20,w=(1454-gap*3)/4,y=223,h=221;
+ metrics.forEach((m,i)=>{const x=x0+i*(w+gap);slab(ctx,x,y,w,h,26);ctx.save();ctx.shadowColor=i%2?'rgba(188,142,255,.32)':'rgba(108,211,255,.29)';ctx.shadowBlur=14;ctx.beginPath();ctx.moveTo(x+26,y+1);ctx.lineTo(x+w-26,y+1);ctx.strokeStyle=i%2?'#c5adff':'#a6dfff';ctx.lineWidth=1.6;ctx.stroke();ctx.restore();
+ icon(ctx,(['sales','profit','units','orders'] as const)[i],x+25,y+19);
+ line(ctx,m.label,x+87,y+55,{size:19,weight:700,color:'#e4e6ef'});
+ const valueSize=shrink(ctx,m.value,w-46,m.value.length>11?47:62,25);
+ line(ctx,m.value,x+24,y+134,{size:valueSize,weight:700});
+ line(ctx,m.sub,x+24,y+186,{size:16,color:'#a7aebe'});
+ });
+ // Top-three profitability is by dollar profit for SKUs with complete costs.
+ slab(ctx,73,472,1454,352,29);
+ line(ctx,'TOP 3 PROFIT ITEMS',111,532,{size:29,weight:700,color:'#f6f6fa'});
+ const rows=data.topProfitItems||[];
+ for(let i=0;i<3;i++){
+  const item=rows[i];const rowY=551+i*83;
+  if(i>0){ctx.strokeStyle='rgba(185,190,204,.19)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(112,rowY-6);ctx.lineTo(1484,rowY-6);ctx.stroke()}
+  if(!item){if(i===0)line(ctx,'No products with complete sales and COGS for this date range',112,650,{size:26,color:'#aeb7c8'});break}
+  line(ctx,String(i+1),135,rowY+49,{size:28,weight:700,color:'#f6f6fa',align:'center'});
+  const img=productImages[i];rounded(ctx,184,rowY+2,78,69,12);ctx.save();ctx.clip();ctx.fillStyle='#2b2d35';ctx.fill();if(img){const ratio=Math.min(78/img.width,69/img.height);const dw=img.width*ratio,dh=img.height*ratio;ctx.drawImage(img,184+(78-dw)/2,rowY+2+(69-dh)/2,dw,dh)}ctx.restore();
+  const safeName=clippedText(ctx,item.name||'Unnamed product',900,25,19);
+  line(ctx,safeName.text,289,rowY+31,{size:safeName.size,weight:600});
+  line(ctx,`${item.quantity.toLocaleString()} UNITS SOLD`,289,rowY+61,{size:17,color:'#aeb5c6'});
+  line(ctx,usd(item.profit),1473,rowY+36,{size:33,weight:700,align:'right'});
+  line(ctx,'EST. PROFIT',1473,rowY+61,{size:15,color:'#a7b0c4',align:'right'});
+ }
+ line(ctx,'SOUL ANALYTICS',73,873,{size:18,weight:700,color:'#b7bfd0'});
+ line(ctx,'SKU estimates exclude shipping allocation · Overall profit may be partial',1527,873,{size:15,align:'right',color:'#a0a8b8'});
 }
 export default function StreamSummaryCard({data,loading}:{data:CardData|null;loading:boolean}){
  const canvasRef=useRef<HTMLCanvasElement|null>(null);
  const [ready,setReady]=useState(false);const [error,setError]=useState('');
  useEffect(()=>{let active=true;setReady(false);if(!data)return;const c=canvasRef.current;if(!c)return;const ctx=c.getContext('2d');if(!ctx)return;
  const load=(src:string,cross=false)=>new Promise<HTMLImageElement|null>(resolve=>{const img=new Image();if(cross)img.crossOrigin='anonymous';img.onload=()=>resolve(img);img.onerror=()=>resolve(null);img.src=src;});
- (async()=>{const [logo,product]=await Promise.all([load('/soul-wordmark-transparent.png'),data.topSellers?.[0]?.image?load(data.topSellers[0].image,true):Promise.resolve(null)]);if(!active)return;try{drawCard(ctx,data,logo,product);setReady(true);setError('')}catch(e){setError('Could not render summary card.');}})();return()=>{active=false};},[data]);
+ (async()=>{const [logo,...productImages]=await Promise.all([load('/soul-wordmark-transparent.png'),...(data.topProfitItems||[]).slice(0,3).map(item=>item.image?load(item.image,true):Promise.resolve(null))]);if(!active)return;try{drawCard(ctx,data,logo,productImages);setReady(true);setError('')}catch(e){setError('Could not render summary card.');}})();return()=>{active=false};},[data]);
  async function download(){const canvas=canvasRef.current;if(!canvas||!ready||!data)return;canvas.toBlob(blob=>{if(!blob){setError('Unable to export PNG.');return;}const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`soul-summary-${data.start}${data.start===data.end?'':`-to-${data.end}`}.png`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000)},'image/png')}
- return <section className="surface" style={{padding:'24px',marginTop:25}}><div className="surfaceHeader"><div><div className="eyebrow">SHAREABLE PERFORMANCE CARD</div><h2>Stream summary image</h2><p className="muted">Uses the reporting dates selected above. A full day or date range includes all imported eligible orders, not just a single livestream.</p></div><button className="primaryBtn" onClick={download} disabled={!ready||loading||!data}>{ready?'↓ Download PNG':'Preparing card…'}</button></div>
+ return <section className="surface" style={{padding:'24px',marginTop:25}}><div className="surfaceHeader"><div><div className="eyebrow">SHAREABLE PERFORMANCE CARD</div><h2>Stream summary image</h2><p className="muted">Uses the reporting dates selected above. Shows all eligible orders for the selected dates, not just one livestream. Top 3 is ranked by estimated SKU profit before shipping.</p></div><button className="primaryBtn" onClick={download} disabled={!ready||loading||!data}>{ready?'↓ Download PNG':'Preparing card…'}</button></div>
  <canvas ref={canvasRef} width={1600} height={900} aria-label="Stream summary image preview" role="img" style={{width:'100%',height:'auto',display:'block',borderRadius:14,background:'#16181d',border:'1px solid #343947'}}/>
- {error&&<p className="msg">{error}</p>}<p className="muted" style={{fontSize:12,marginBottom:0}}>1600 × 900 PNG · Profit is an estimate based on priced sales, 6% assumed fees, saved COGS, and available seller shipping. Missing costs and refunds may change the final result.</p></section>
+ {error&&<p className="msg">{error}</p>}<p className="muted" style={{fontSize:12,marginBottom:0}}>1600 × 900 PNG · Overall profit estimates use 6% fees, saved COGS and available seller shipping. Top 3 SKU profits exclude unallocated shipping. Missing costs and refunds may change the figures.</p></section>
 }
