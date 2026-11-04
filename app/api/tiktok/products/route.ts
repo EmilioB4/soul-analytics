@@ -1,3 +1,4 @@
+import {allocateFifo,lineKey} from '../../../../lib/fifo';
 import {NextRequest,NextResponse} from 'next/server';
 import {db,owner} from '../../../../lib/tiktok';
 export const runtime='nodejs';
@@ -8,13 +9,17 @@ export async function GET(req:NextRequest){
   if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
   const client=db();
   const [itemsResult,costsResult,ordersResult,finResult]=await Promise.all([
-   client.from('tiktok_order_items').select('shop_id,order_id,sku_id,product_name,sku_name,sku_image,quantity,unit_sale_price,currency').eq('owner_id',user.id).limit(5000),
+   client.from('tiktok_order_items').select('shop_id,order_id,line_id,sku_id,product_name,sku_name,sku_image,quantity,unit_sale_price,currency').eq('owner_id',user.id).limit(5000),
    client.from('tiktok_product_costs').select('shop_id,sku_id,unit_cogs').eq('owner_id',user.id).limit(5000),
    client.from('tiktok_orders').select('shop_id,order_id,status,created_at').eq('owner_id',user.id).limit(5000),
    client.from('tiktok_order_finance').select('shop_id,order_id,settlement_amount,shipping_cost_amount,currency').eq('owner_id',user.id).limit(5000)
   ]);
   if(itemsResult.error||costsResult.error||ordersResult.error||finResult.error)return NextResponse.json({error:'Product/finance tables unavailable. Run supabase/product_finance.sql first.'},{status:503});
-  const costs=new Map((costsResult.data||[]).map(c=>[`${c.shop_id}:${c.sku_id}`,Number(c.unit_cogs)]));
+  const costs=new Map((costsResult.data||[]).map(c=>[`${c.shop_id}::${c.sku_id}`,Number(c.unit_cogs)]));
+  const {data:lots,error:lotsError}=await client.from('tiktok_inventory_batches').select('id,shop_id,sku_id,acquired_on,quantity,unit_cost').eq('owner_id',user.id).limit(5000);
+  if(lotsError)throw Error('Run supabase/fifo_batches.sql first');
+  const fifo=allocateFifo(itemsResult.data||[],ordersResult.data||[],lots||[],costs);
+  const lotSkus=new Set((lots||[]).map(l=>`${l.shop_id}:${l.sku_id}`));
   const orders=new Map((ordersResult.data||[]).map(o=>[`${o.shop_id}:${o.order_id}`,o]));
   const finances=new Map((finResult.data||[]).map(f=>[`${f.shop_id}:${f.order_id}`,f]));
   type OrderDetail={orderId:string;date:string|null;status:string;quantity:number;unitPrice:number|null;subtotal:number|null;currency:string};
@@ -23,10 +28,10 @@ export async function GET(req:NextRequest){
   const orderCosts=new Map<string,{value:number;complete:boolean}>();
   for(const line of itemsResult.data||[]){
    const ok=orders.get(`${line.shop_id}:${line.order_id}`);
-   if(!ok||['UNPAID','CANCELLED'].includes(ok.status))continue;
+   if(!ok||['UNPAID','CANCELLED','CANCELED'].includes(String(ok.status).toUpperCase()))continue;
    const key=`${line.shop_id}:${line.sku_id}`;
    const count=Number(line.quantity)||1;
-   const unitCost=costs.get(key)??null;
+   const unitCost=lotSkus.has(key)?null:(costs.get(`${line.shop_id}::${line.sku_id}`)??null);const rowCost=fifo.allocations.get(lineKey(line))?.cost??null;
    const unitPrice=line.unit_sale_price==null?null:Number(line.unit_sale_price);
    const p:Prod=products.get(key)||{shopId:line.shop_id,skuId:line.sku_id,name:line.product_name,variant:line.sku_name||'',image:line.sku_image||null,quantity:0,sales:0,unitCost,currency:line.currency,estimatedProfit:null,estimatedFee:null,totalCogs:null,avgPrice:null,orders:[]};
    p.orders.push({orderId:String(line.order_id),date:ok.created_at??null,status:String(ok.status||'UNKNOWN'),quantity:count,unitPrice:unitPrice===null||!Number.isFinite(unitPrice)?null:money(unitPrice),subtotal:unitPrice===null||!Number.isFinite(unitPrice)?null:money(count*unitPrice),currency:String(line.currency||'')});
@@ -36,7 +41,7 @@ export async function GET(req:NextRequest){
    products.set(key,p);
    const orderKey=`${line.shop_id}:${line.order_id}`;
    const current=orderCosts.get(orderKey)||{value:0,complete:true};
-   if(unitCost===null)current.complete=false;else current.value+=count*unitCost;
+   if(rowCost===null)current.complete=false;else current.value+=rowCost;
    orderCosts.set(orderKey,current);
   }
   let settled=0,priced=0,settledProfit=0,unpriced=0;
@@ -60,16 +65,19 @@ export async function GET(req:NextRequest){
   }
   let pricedProductCount=0,missingCostProductCount=0,estimatedProductSales=0,estimatedTikTokFees=0,estimatedCOGS=0,estimatedProfit=0;
   const listing=[...products.values()].sort((a,b)=>b.quantity-a.quantity).map(p=>{
-   const valid=p.sales!==null&&p.currency==='USD'&&p.unitCost!==null;
+   const forSku=(itemsResult.data||[]).filter(l=>l.shop_id===p.shopId&&l.sku_id===p.skuId&&orders.has(`${l.shop_id}:${l.order_id}`)&&!['UNPAID','CANCELLED','CANCELED'].includes(String(orders.get(`${l.shop_id}:${l.order_id}`)?.status).toUpperCase()));
+   const assignedCosts=forSku.map(l=>fifo.allocations.get(lineKey(l))?.cost??null);
+   const fifoCost=assignedCosts.every(c=>c!==null)?money(assignedCosts.reduce((n,c)=>n+Number(c||0),0)):null;
+   const valid=p.sales!==null&&p.currency==='USD'&&fifoCost!==null;
    const avgPrice=p.sales!==null&&p.quantity>0?money(p.sales/p.quantity):null;
    const fee=valid?money(p.sales!*0.06):null;
-   const cogs=valid?money(p.quantity*p.unitCost!):null;
+   const cogs=valid?fifoCost:null;
    const profit=valid?money(p.sales!-fee!-cogs!):null;
    if(valid){pricedProductCount++;estimatedProductSales+=p.sales!;estimatedTikTokFees+=fee!;estimatedCOGS+=cogs!;estimatedProfit+=profit!;}else missingCostProductCount++;
    p.orders.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
-   return {...p,sales:p.sales===null?null:money(p.sales),avgPrice,estimatedFee:fee,totalCogs:cogs,estimatedProfit:profit};
+   return {...p,costMethod:lotSkus.has(`${p.shopId}:${p.skuId}`)?'FIFO':'Fixed',fifoRemaining:fifo.remaining.get(`${p.shopId}::${p.skuId}`)??null,sales:p.sales===null?null:money(p.sales),avgPrice,estimatedFee:fee,totalCogs:cogs,estimatedProfit:profit};
   });
-  return NextResponse.json({products:listing,metrics:{settledOrderCount:settled,pricedSettledOrders:priced,missingCostSettledOrders:unpriced,settledContributionProfit:priced?money(settledProfit):null,profitIsPartial:priced!==settled,feeRate:0.06,estimatedProductSales:money(estimatedProductSales),estimatedTikTokFees:money(estimatedTikTokFees),estimatedCOGS:money(estimatedCOGS),estimatedProfit:pricedProductCount?money(estimatedProfit-shippingExpense):null,shippingExpense:money(shippingExpense),shippingCoveredOrders,shippingMissingOrders,pricedProductCount,missingCostProductCount,orderItems:(itemsResult.data||[]).length,financeRecords:(finResult.data||[]).length,limitReached:[itemsResult.data,ordersResult.data,finResult.data].some(x=>(x||[]).length===5000)}});
+  return NextResponse.json({products:listing,metrics:{settledOrderCount:settled,pricedSettledOrders:priced,missingCostSettledOrders:unpriced,settledContributionProfit:priced?money(settledProfit):null,profitIsPartial:priced!==settled,feeRate:0.06,estimatedProductSales:money(estimatedProductSales),estimatedTikTokFees:money(estimatedTikTokFees),estimatedCOGS:money(estimatedCOGS),estimatedProfit:pricedProductCount?money(estimatedProfit-shippingExpense):null,shippingExpense:money(shippingExpense),shippingCoveredOrders,shippingMissingOrders,pricedProductCount,missingCostProductCount,orderItems:(itemsResult.data||[]).length,financeRecords:(finResult.data||[]).length,limitReached:[itemsResult.data,ordersResult.data,finResult.data,lots].some(x=>(x||[]).length===5000)}});
  }catch{return NextResponse.json({error:'Unable to retrieve product profitability'},{status:503});}
 }
 export async function PUT(req:NextRequest){
