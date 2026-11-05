@@ -1,23 +1,9 @@
-SOUL ANALYTICS - PLATFORM NAVIGATION (PHASE 1)
+SOUL ANALYTICS — COMBINED COMPARISON & PLATFORM ICONS
 
-What changes:
-- Sidebar groups: Combined Analytics / TikTok Shop / Whatnot / Integrations.
-- Combined Analytics shows clearly labeled TikTok-only live figures and an empty Whatnot card until Whatnot data is imported.
-- Whatnot gets a clean setup landing page for the next phase (generic listing profit tracking).
-- TikTok Shop Orders, Products & COGS, Profit & Expenses, Payouts, Share PNL, integrations, and theme switch remain in the same page.
+Install: Extract ZIP; upload app/page.tsx and app/globals.css to the app folder of your repository, not a nested app folder.
 
-What does NOT change:
-- No database changes, new tables, API changes, or changes to costs/profit computations.
-- No Whatnot import or combined totals yet. Those are phase 2.
+Changes: Add Combined Analytics chart showing TikTok product sales over time and clear Whatnot unavailable state; add TikTok/Whatnot website favicon icons next to platform names; remove the duplicate combined/Whatnot content introduced in Phase 1.
 
-Install:
-- Extract this zip.
-- Upload the CONTENTS of the app/ folder to the app/ folder at your GitHub repository root. Replace ONLY app/page.tsx and app/globals.css.
-- Do NOT upload the ZIP or a nested project folder.
-- Commit and wait for Vercel Ready.
+No new backend/database changes. Live Whatnot comparison data will require a future import. Icons load from the Google favicon service, with in-app fallback if unavailable.
 
-Revert:
-- GitHub -> Commits -> revert this commit (or restore the two prior versions).
-
-Validation:
-- TypeScript TSX syntax/transpilation checked. Full Next.js production build not tested here.
+Revert: GitHub revert this commit.
