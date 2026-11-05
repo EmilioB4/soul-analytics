@@ -1,0 +1,1 @@
+Soul Analytics Whatnot Show Library. Upload extracted app folder to root of GitHub. Includes latest Aurora logo-spacing CSS and adds Show Library with detail, COGS editor, order history toggle. No API or database changes. Show date is first recorded sale; pagination still pending verification. Production build not tested.
