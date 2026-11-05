@@ -1,1 +1,1 @@
-TikTok Show Library UI update. Upload the extracted app folder at the GitHub repository root. Changes only app/TikTokLiveEfficiency.tsx and app/globals.css. TikTok Sales Over Time and Top Sellers sections in app/page.tsx remain unchanged.
+TikTok Overview layout-only change: KPI cards, full-width Sales over time, Top sellers, TikTok Show Performance, Quick Actions. Replace app/page.tsx only. No financial, API, or database changes. Existing TikTokLiveEfficiency.tsx and globals.css are retained.
