@@ -36,7 +36,19 @@ export async function callWhatnot(path:string,query?:URLSearchParams,options?:{m
      const message=typeof d.msg==='string'?d.msg.slice(0,160):'Invalid field';
      return location+': '+message;
     }).join('; ');
-    if(!validation && typeof obj.param==='string' && /^[a-zA-Z0-9_.-]{1,100}$/.test(obj.param)) validation='Invalid parameter: '+obj.param;
+    if(!validation && typeof obj.param==='string' && /^[a-zA-Z0-9_.-]{1,100}$/.test(obj.param)) {
+     validation='Invalid parameter: '+obj.param;
+     // Whatnot's Problem Details error often includes a useful `detail` string.
+     // Only surface it for the known, non-sensitive report_type field, and refuse
+     // URLs, email addresses, long key-like strings, or unexpected characters.
+     if(obj.param==='report_type' && typeof obj.detail==='string') {
+      const detail=obj.detail.trim();
+      const safe=/^[a-zA-Z0-9 _.,:;()'"\/\[\]{}<>+=!?-]{1,240}$/.test(detail)
+       && !/(https?:|www\.|@|bearer|token|key|secret|authorization|password)/i.test(detail)
+       && !/[A-Za-z0-9_-]{28,}/.test(detail);
+      if(safe) validation+=' — '+detail;
+     }
+    }
    }catch{ /* The response may not contain JSON. */ }
    throw Error('Whatnot rejected the report request (422)'+(validation?': '+validation:'. No validation fields returned.'));
   }
