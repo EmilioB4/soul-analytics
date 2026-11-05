@@ -1,0 +1,18 @@
+ 'use client';
+import {useCallback,useEffect,useState} from 'react';
+import {supabase} from './supabase';
+type Summary={configured:boolean;orders:number;shows:number;recent:{external_id:string;status:string;created_at:string|null}[];recentShows:{external_id:string;title:string|null;status:string}[]};
+export default function WhatnotDashboard(){
+ const [summary,setSummary]=useState<Summary|null>(null),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState('');
+ const request=useCallback(async(path:string,method='GET')=>{const {data}=await supabase!.auth.getSession();if(!data.session)throw Error('Sign in again.');const r=await fetch(path,{method,headers:{Authorization:`Bearer ${data.session.access_token}`},cache:'no-store'});const j=await r.json();if(!r.ok)throw Error(j.error||'Request failed');return j;},[]);
+ const refresh=useCallback(async()=>{try{setSummary(await request('/api/whatnot/summary'));setError('');}catch(e){setError(e instanceof Error?e.message:'Could not load Whatnot');}},[request]);
+ useEffect(()=>{void refresh();},[refresh]);
+ async function sync(){setBusy(true);setNotice('');setError('');try{const result=await request('/api/whatnot/sync','POST');setNotice(`${result.ordersProcessed} orders and ${result.showsProcessed} shows processed. Records are safely deduplicated.`);await refresh();}catch(e){setError(e instanceof Error?e.message:'Sync failed');}finally{setBusy(false);}}
+ return <div className="wnDashboard">
+  <section className="surface wnTop"><div><div className="eyebrow">WHATNOT SELLER API</div><h2>Orders &amp; shows</h2><p className="muted">Your Whatnot records sync independently of TikTok Shop. Financial calculations will follow after the source fields are verified.</p></div><button className="primaryBtn" disabled={busy||!summary?.configured} onClick={sync}>{busy?'Syncing…':'↻  Sync Whatnot'}</button></section>
+  {error&&<div className="alertBox" role="alert">{error}</div>}{notice&&<div className="alertBox" role="status">{notice}</div>}
+  <div className="wnStats"><div className="metricCard"><div className="metricLabel">Imported orders</div><div className="metricValue">{summary?.orders??'—'}</div></div><div className="metricCard"><div className="metricLabel">Imported shows</div><div className="metricValue">{summary?.shows??'—'}</div></div><div className="metricCard"><div className="metricLabel">API connection</div><div className="metricValue wnConnection">{summary?.configured?'Configured':'Not configured'}</div></div></div>
+  {!summary?.configured&&<section className="surface wnNote"><strong>Connection setup required</strong><p className="muted">Create a read-only personal access token from Whatnot Seller Hub → Seller API, then save it as WHATNOT_API_TOKEN in Vercel environment variables. Never paste your token into chat or frontend code.</p></section>}
+  <section className="surface wnRecent"><div className="surfaceHeader"><div><div className="eyebrow">IMPORTED HISTORY</div><h2>Recent orders</h2></div><button className="outlineBtn" onClick={refresh}>Refresh</button></div><div className="tableScroll"><table className="modernTable"><thead><tr><th>Whatnot order</th><th>Status</th><th>Date</th></tr></thead><tbody>{(summary?.recent||[]).map(o=><tr key={o.external_id}><td className="mono">{o.external_id}</td><td>{o.status}</td><td>{o.created_at?new Date(o.created_at).toLocaleString():'—'}</td></tr>)}</tbody></table>{!summary?.recent.length&&<div className="empty">No Whatnot orders imported yet.</div>}</div><p className="muted" style={{fontSize:12}}>This first import intentionally excludes unverified revenue, fees, COGS, and payouts. Raw API data is saved securely for the next phase.</p></section>
+ </div>;
+}

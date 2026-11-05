@@ -1,5 +1,5 @@
 import {NextRequest,NextResponse} from 'next/server';
-import {importWhatnot} from '../../../../../lib/whatnot';
+import {importWhatnot} from '../../../../lib/whatnot';
 export const runtime='nodejs';export const maxDuration=60;
 export async function GET(req:NextRequest){
  const secret=process.env.CRON_SECRET;const ownerId=process.env.WHATNOT_OWNER_ID;
