@@ -190,9 +190,9 @@ h1{font-size:clamp(29px,2.45vw,40px);line-height:1.14;font-weight:650}
 h2{font-weight:600;letter-spacing:-.04em}
 .appShell{background:radial-gradient(ellipse 650px 470px at 96% -10%,rgba(132,83,233,.085),transparent 75%),var(--bg)}
 .sidebar{width:258px;background:linear-gradient(165deg,#0e111b,#0c1018 78%);border-right:1px solid #26303e;padding:25px 13px}
-.brand{padding:0 12px 34px;display:flex;flex-direction:column;align-items:flex-start;gap:2px}
-.brandWordmark{width:155px;height:79px;object-fit:contain;object-position:left center;filter:drop-shadow(0 4px 16px rgba(130,157,251,.06));margin:-16px 0 -16px}
-.brandSubline{font-size:9px;letter-spacing:.4em;color:#b9c0d0;padding-left:49px;font-weight:700}
+.brand{padding:0 12px 30px;display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-width:0}
+.brandWordmark{display:block;width:128px;max-width:100%;height:auto;object-fit:contain;object-position:left center;filter:drop-shadow(0 4px 16px rgba(130,157,251,.06));margin:0;flex-shrink:0}
+.brandSubline{display:block;font-size:8px;line-height:1.35;letter-spacing:.3em;color:#b9c0d0;padding-left:43px;font-weight:700;white-space:nowrap;margin:0}
 .navGroup{margin-bottom:5px}.navGroup .navCaption{color:#818c9d;margin:17px 0 8px;font-weight:700;font-size:9px;letter-spacing:.19em}
 .navItem{font-size:12.5px;font-weight:550;border-radius:11px;padding:12px 13px;color:#a7b1c3;transition:background .18s,border-color .18s,color .18s}
 .navItem:hover{background:#1b2332;color:#f6f9ff}
@@ -234,4 +234,4 @@ html[data-soul-theme=light] .modernTable td{color:#243147}html[data-soul-theme=l
 html[data-soul-theme=light] .navItem.active{background:linear-gradient(110deg,#edebff,#e8f7fb);color:#303a55;border-color:#d4d4ee}
 html[data-soul-theme=light] .sidebar{background:#fff}html[data-soul-theme=light] .masthead{background:#fff}
 @media(max-width:1100px){.metricGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.platformTiles{grid-template-columns:1fr}}
-@media(max-width:640px){.brandWordmark{width:130px}.content{padding:21px 13px}.metricGrid,.wnKpis{grid-template-columns:1fr}.wnHero,.surface{padding:18px}.compareChartCard{padding:18px 14px}.metricCard{min-height:125px}.pageHeading{align-items:flex-start;flex-wrap:wrap}}
+@media(max-width:640px){.brandWordmark{width:120px}.content{padding:21px 13px}.metricGrid,.wnKpis{grid-template-columns:1fr}.wnHero,.surface{padding:18px}.compareChartCard{padding:18px 14px}.metricCard{min-height:125px}.pageHeading{align-items:flex-start;flex-wrap:wrap}}
