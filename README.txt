@@ -1,1 +1,1 @@
-Upload the app and public folders to the repository root. The Share PNL button now plays the user-supplied camera-flash sound when opening the preview. No backend changes.
+Layout-only update. Upload app/page.tsx to repository root. On Combined Analytics, platform summary cards now appear above the sales comparison chart. Based on most recent Share PNL camera-sound page.tsx. No API or financial logic changes.
