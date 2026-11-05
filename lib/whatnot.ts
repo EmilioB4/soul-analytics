@@ -15,10 +15,10 @@ export function iso(v:unknown):string|null{
  if(typeof v!=='string'||!v.trim())return null;
  const d=new Date(v);return Number.isNaN(d.valueOf())?null:d.toISOString();
 }
-export async function callWhatnot(path:string,query?:URLSearchParams){
+export async function callWhatnot(path:string,query?:URLSearchParams,options?:{method?:'GET'|'POST';body?:unknown}){
  const token=process.env.WHATNOT_API_TOKEN?.trim();if(!token)throw Error('WHATNOT_API_TOKEN not configured in Vercel');
  const url=BASE+path+(query?.size?'?'+query.toString():'');
- const response=await fetch(url,{headers:{Authorization:`Bearer ${token}`,Accept:'application/json'},cache:'no-store',signal:AbortSignal.timeout(20000)});
+ const response=await fetch(url,{method:options?.method||'GET',headers:{Authorization:`Bearer ${token}`,Accept:'application/json',...(options?.body?{'Content-Type':'application/json'}:{})},body:options?.body?JSON.stringify(options.body):undefined,cache:'no-store',signal:AbortSignal.timeout(20000)});
  if(!response.ok){
   if(response.status===401||response.status===403)throw Error('Whatnot token expired or lacks read permissions ('+response.status+').');
   if(response.status===429)throw Error('Whatnot API rate limit. Retry after a short interval.');
