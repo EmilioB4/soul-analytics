@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from 'next/server';
-import {owner,db} from '../../../../../lib/tiktok';
-import {accessToken,tikTokCall} from '../../../../../lib/tiktok-orders';
+import {owner,db} from '../../../../lib/tiktok';
+import {accessToken,tikTokCall} from '../../../../lib/tiktok-orders';
 export const runtime='nodejs';
 function obj(v:unknown):Record<string,unknown>{return v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};}
 function date(v:unknown){const n=Number(v);if(Number.isFinite(n)&&n>1e9){const d=new Date(n>1e12?n:n*1000);return Number.isNaN(d.valueOf())?null:d.toISOString();}if(typeof v==='string'){const d=new Date(v);return Number.isNaN(d.valueOf())?null:d.toISOString();}return null;}
