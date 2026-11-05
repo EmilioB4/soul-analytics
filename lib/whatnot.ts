@@ -22,6 +22,24 @@ export async function callWhatnot(path:string,query?:URLSearchParams,options?:{m
  if(!response.ok){
   if(response.status===401||response.status===403)throw Error('Whatnot token expired or lacks read permissions ('+response.status+').');
   if(response.status===429)throw Error('Whatnot API rate limit. Retry after a short interval.');
+  if(response.status===422){
+   // Only expose schema-validation paths and short messages, never request or response records.
+   // Whatnot uses {detail:[{loc,msg,type}]} for invalid request bodies/parameters.
+   let validation='';
+   try {
+    const payload:unknown=await response.json();
+    const obj=record(payload);
+    const details=Array.isArray(obj.detail)?obj.detail:[];
+    validation=details.slice(0,4).map((entry:unknown)=>{
+     const d=record(entry);
+     const location=Array.isArray(d.loc)?d.loc.filter((part:unknown)=>typeof part==='string'||typeof part==='number').map(String).join('.'):'request';
+     const message=typeof d.msg==='string'?d.msg.slice(0,160):'Invalid field';
+     return location+': '+message;
+    }).join('; ');
+    if(!validation && typeof obj.param==='string' && /^[a-zA-Z0-9_.-]{1,100}$/.test(obj.param)) validation='Invalid parameter: '+obj.param;
+   }catch{ /* The response may not contain JSON. */ }
+   throw Error('Whatnot rejected the report request (422)'+(validation?': '+validation:'. No validation fields returned.'));
+  }
   throw Error('Whatnot API request failed ('+response.status+').');
  }
  return await response.json() as unknown;
