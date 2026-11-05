@@ -1,1 +1,1 @@
-TikTok Overview layout-only change: KPI cards, full-width Sales over time, Top sellers, TikTok Show Performance, Quick Actions. Replace app/page.tsx only. No financial, API, or database changes. Existing TikTokLiveEfficiency.tsx and globals.css are retained.
+Upload the app and public folders to the repository root. The Share PNL button now plays the user-supplied camera-flash sound when opening the preview. No backend changes.
