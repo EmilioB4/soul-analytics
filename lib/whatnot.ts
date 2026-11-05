@@ -26,9 +26,24 @@ export async function callWhatnot(path:string,query?:URLSearchParams){
  }
  return await response.json() as unknown;
 }
-export function unwrap(v:unknown,key:string){const o=record(v);const data=record(o.data);const array=[o[key],data[key],o.results,data.results];return array.find(Array.isArray) as unknown[]|undefined;}
+// REST v2 list endpoints return {data: [...], next_cursor: ...}.
+// Also accept legacy nested shapes without inspecting or logging customer records.
+export function unwrap(v:unknown,key:string){
+ if(Array.isArray(v))return v as unknown[];
+ const o=record(v),nested=record(o.data);
+ const candidates=[o.data,o[key],o.results,nested[key],nested.results,nested.items];
+ return candidates.find(Array.isArray) as unknown[]|undefined;
+}
+function responseShape(v:unknown):string{
+ if(Array.isArray(v))return 'array';
+ if(!v||typeof v!=='object')return typeof v;
+ const o=record(v);
+ const keys=Object.keys(o).filter(k=>/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(k)).slice(0,12);
+ const dataType=Array.isArray(o.data)?'array':o.data===null?'null':typeof o.data;
+ return 'object keys='+keys.join(',')+'; dataType='+dataType;
+}
 export function nextCursor(v:unknown){const o=record(v),d=record(o.data),page=record(o.pagination),dp=record(d.pagination);
- return textValue(o.next_page_token)||textValue(o.next_cursor)||textValue(d.next_page_token)||textValue(d.next_cursor)||textValue(page.next_page_token)||textValue(page.next_cursor)||textValue(dp.next_page_token)||textValue(dp.next_cursor);
+ return textValue(o.next_cursor)||textValue(o.next_page_token)||textValue(d.next_cursor)||textValue(d.next_page_token)||textValue(page.next_cursor)||textValue(page.next_page_token)||textValue(dp.next_cursor)||textValue(dp.next_page_token);
 }
 export async function importWhatnot(ownerId:string){
  const client=db();let ordersCount=0,showsCount=0,orderPages=0,showPages=0;
@@ -36,10 +51,10 @@ export async function importWhatnot(ownerId:string){
  for(const kind of ['orders','shows'] as const){
   let cursor:string|null=null;const cursors=new Set<string>();
   for(let page=0;page<5;page++){
-   const query=new URLSearchParams();if(cursor)query.set('page_token',cursor);
+   const query=new URLSearchParams();if(cursor)query.set('cursor',cursor);
    const response=await callWhatnot('/'+kind,query);
    const items=unwrap(response,kind);
-   if(!items)throw Error('Unexpected Whatnot /'+kind+' response. No data saved for this page; verify API format.');
+   if(!items)throw Error('Unexpected Whatnot /'+kind+' response ('+responseShape(response)+'). No records from this page saved.');
    const rows=items.map(raw=>{
     const r=record(raw);const id=textValue(r.id)||textValue(r.order_id)||textValue(r.show_id);
     if(!id)return null;
