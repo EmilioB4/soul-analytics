@@ -1,4 +1,5 @@
 'use client';
+import TikTokLiveEfficiency from './TikTokLiveEfficiency';
 import {useCallback,useEffect,useState} from 'react';
 import {supabase} from './supabase';
 import WhatnotDashboard from './WhatnotDashboard';
@@ -123,6 +124,7 @@ export default function Home(){
   </div>
   <section className="surface combinedStatus"><div><div className="eyebrow">CONSOLIDATED REPORTING</div><h2>Combined P&amp;L</h2><p className="muted">Whatnot settled figures are now visible above. A single combined financial total requires matching date ranges and completed stream COGS—so we do not mix incompatible periods or treat payouts as revenue.</p></div><span className="platformState pending">Date reconciliation pending</span></section>
  </>}
+ {tab==='overview'&&<TikTokLiveEfficiency/>}
  {tab==='whatnot'&&<WhatnotDashboard/>}
  {tab==='overview'&&<><div className="dashboardGrid"><section className="surface chartCard"><div className="surfaceHeader"><div><div className="eyebrow">SALES PERFORMANCE</div><h2>Sales over time</h2><p className="muted">Product subtotals from your imported TikTok orders</p></div><div className="chartTotal">{analytics?money(analytics.total):'—'}<small>{periodNames[period]}</small></div></div><SalesChart bins={analytics?.bins||[]} period={period}/></section><section className="surface sellersCard"><div className="surfaceHeader"><div><div className="eyebrow">BEST PERFORMERS</div><h2>Top sellers</h2><p className="muted">Ranked by units sold</p></div><button className="miniLink" onClick={()=>setTab('products')}>All products ↗</button></div><div className="sellerList">{analytics?.topSellers?.length?analytics.topSellers.map((p,i)=><div className="seller" key={p.skuId}><span className="rank">{String(i+1).padStart(2,'0')}</span>{p.image?<img src={p.image} alt="" referrerPolicy="no-referrer"/>:<div className="sellerFallback">◈</div>}<div className="sellerInfo"><b title={p.name}>{p.name}</b><small>{p.quantity} sold · Avg {p.quantity>0?money(p.sales/p.quantity):'—'}</small></div><strong>{money(p.sales)}</strong></div>):<div className="empty">Top sellers will appear after an order sync with product lines.</div>}</div></section></div><section className="surface quickSection"><div><div className="eyebrow">QUICK ACTIONS</div><h2>Keep your data current</h2><p className="muted">Order imports are manual for now. Finance imports are available in the Financials tab.</p></div><button className="primaryBtn" onClick={syncOrders} disabled={syncBusy||!tiktokConnected}>{syncBusy?'Syncing…':'↻  Sync last 30 days'}</button></section>{syncMessage&&<div className="alertBox">{syncMessage}</div>}</>}
  {tab==='overview'&&shareOpen&&<StreamSummaryCard data={analytics} loading={analyticsBusy} onClose={()=>setShareOpen(false)}/>}
