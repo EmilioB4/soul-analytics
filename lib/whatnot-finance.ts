@@ -31,7 +31,7 @@ function weekWindow(weeksAgo:number){
  return {start:monday.toISOString(),end:end.toISOString()};
 }
 async function requestReport(start:string,end:string){
- const body={report_type:'seller_financial_report',report_parameters:{report_type:'seller_financial_report',start_date:start,end_date:end}};
+ const body={report_parameters:{report_type:'seller_financial_report',start_date:start,end_date:end}};
  const result=asObj(await callWhatnot('/reports',undefined,{method:'POST',body}));
  const r=asObj(result.data);const o=Object.keys(r).length?r:result;
  const id=textValue(o.id)||textValue(o.report_id);
