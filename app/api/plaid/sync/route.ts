@@ -13,7 +13,7 @@ export async function POST(req:NextRequest){
   let cursor=initialCursor;added=[];modified=[];removed=[];complete=false;
   for(let page=0;page<30;page++){
    let response:any;
-   try{response=await plaid('/transactions/sync',{access_token:access,account_id:connection.account_id,cursor,count:500});}
+   try{response=await plaid('/transactions/sync',{access_token:access,cursor,count:500});}
    catch(e){if(e instanceof Error&&e.message.includes('TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION')&&attempt===0)break;throw e;}
    added.push(...(response.added||[]));modified.push(...(response.modified||[]));removed.push(...(response.removed||[]));cursor=response.next_cursor;
    if(!response.has_more){complete=true;finalCursor=cursor;break;}
