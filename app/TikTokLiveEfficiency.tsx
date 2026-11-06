@@ -95,9 +95,7 @@ export default function TikTokLiveEfficiency(){
       <div><span>Orders / hour</span><strong>{selected.orders!==null&&selected.minutes!==null&&selected.minutes>0?(selected.orders*60/selected.minutes).toFixed(1):'—'}</strong></div>
       <div><span>Units sold</span><strong>{selected.items!==null?selected.items.toLocaleString():'—'}</strong></div>
       <div><span>Est. profit / hour</span><strong className={estimatedProfitHour===null?'ttIntUnavailable':undefined}>{estimatedProfitHour===null?'—':usd(estimatedProfitHour)}</strong></div>
-      <div><span>Est. profit margin</span><strong className={estimatedMargin===null?'ttIntUnavailable':undefined}>{estimatedMargin===null?'—':percent(estimatedMargin)}</strong></div>
-      <div><span>Est. ROI on COGS</span><strong className={estimatedRoi===null?'ttIntUnavailable':undefined}>{estimatedRoi===null?'—':percent(estimatedRoi)}</strong></div>
-     </div><p className="muted" style={{fontSize:12,marginTop:12}}>Estimated using the shop-wide profit and COGS rates from imported priced orders across the returned LIVE date range{shopRates?.partial?" (partial cost coverage)":""}. These are not reconciled stream-specific profits.</p></section>
+     </div><p className="muted" style={{fontSize:12,marginTop:12}}>Estimated profit/hour uses the shop-wide profit rate from imported priced orders across the returned LIVE date range{shopRates?.partial?" (partial cost coverage)":""}. These are not reconciled stream-specific profits.</p></section>
      <div className="ttIntTabs"><button type="button" className={detailTab==='performance'?'active':''} onClick={()=>setDetailTab('performance')}>Performance details</button><button type="button" className={detailTab==='notes'?'active':''} onClick={()=>setDetailTab('notes')}>Data notes</button></div>
      {detailTab==='performance'?<div className="ttIntBreakdown">
       <div><span>LIVE GMV</span><b>{selected.gmv!==null?usd(selected.gmv):'—'}</b></div>
