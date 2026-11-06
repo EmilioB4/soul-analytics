@@ -76,6 +76,28 @@ export default function WhatnotDashboard(){
    <div className="wnIntMetric"><span>Tracked stream profit</span><strong className={missing?'wnIntSoft':'wnIntAccent'}>{reconciled.length?usd(totalProfit):'—'}</strong><small>{missing?`${missing} show${missing===1?'':'s'} still need COGS · partial total`:'Shows with saved COGS only'}</small></div>
    <div className="wnIntMetric"><span>Financial transactions</span><strong>{finance?number(filteredEntries):'—'}</strong><small>{summary?.configured?'API configured · automated ledger':'Connection required'}</small></div>
   </div>
+  <section className="surface" style={{padding:'22px 24px',marginBottom:22}} aria-label="Whatnot sales and earnings trend">
+   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap',marginBottom:12}}><div><div className="eyebrow">WHATNOT PERFORMANCE</div><h3 style={{margin:'6px 0'}}>Merchandise sales &amp; net earnings</h3><p className="muted" style={{margin:0}}>By first recorded sale date · selected reporting period</p></div><div style={{display:'flex',gap:16,fontSize:12,flexWrap:'wrap'}}><span style={{color:'#7BE9EF'}}>● Merchandise sales</span><span style={{color:'#C39BFF'}}>● Net earnings</span></div></div>
+   {(() => {
+    const grouped=new Map<string,{gross:number;earnings:number}>();
+    for(const st of filteredShows){if(!st.firstSaleAt)continue;const key=dateOf(st.firstSaleAt);const old=grouped.get(key)||{gross:0,earnings:0};grouped.set(key,{gross:old.gross+st.gross,earnings:old.earnings+st.earnings});}
+    const keys=[...grouped.keys()].sort();
+    if(!keys.length)return <div className="wnIntEmpty" style={{minHeight:170,display:'grid',placeItems:'center'}}>No dated Whatnot sales for this reporting period.</div>;
+    const W=900,H=260,L=78,R=20,T=18,B=42,plotW=W-L-R,plotH=H-T-B;
+    const values=keys.flatMap(k=>[grouped.get(k)!.gross,grouped.get(k)!.earnings]);
+    const low=Math.min(0,...values),high=Math.max(0,...values);const span=Math.max(1,high-low);
+    const x=(i:number)=>L+(keys.length===1?plotW/2:i*plotW/(keys.length-1));
+    const y=(v:number)=>T+(high-v)/span*plotH;
+    const line=(field:'gross'|'earnings')=>keys.map((k,i)=>`${i?'L':'M'} ${x(i).toFixed(1)} ${y(grouped.get(k)![field]).toFixed(1)}`).join(' ');
+    const tickStep=Math.max(1,Math.ceil(keys.length/7));
+    return <div style={{overflowX:'auto'}}><svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Whatnot merchandise sales and net earnings by first sale date" style={{display:'block',width:'100%',minWidth:480}}>
+     {[0,.25,.5,.75,1].map(t=><g key={t}><line x1={L} x2={W-R} y1={T+t*plotH} y2={T+t*plotH} stroke="var(--border)" strokeDasharray="4 6"/><text x={L-12} y={T+t*plotH+4} textAnchor="end" fontSize="11" fill="var(--muted)">{usd(high-t*span)}</text></g>)}
+     <path d={line('gross')} fill="none" stroke="#7BE9EF" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round"/><path d={line('earnings')} fill="none" stroke="#C39BFF" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round"/>
+     {keys.map((k,i)=><g key={k}><circle cx={x(i)} cy={y(grouped.get(k)!.gross)} r="4" fill="#7BE9EF"><title>{`${k} · Merchandise sales: ${usd(grouped.get(k)!.gross)}`}</title></circle><circle cx={x(i)} cy={y(grouped.get(k)!.earnings)} r="4" fill="#C39BFF"><title>{`${k} · Net earnings: ${usd(grouped.get(k)!.earnings)}`}</title></circle>{(i%tickStep===0||i===keys.length-1)&&<text x={x(i)} y={H-12} fontSize="11" textAnchor="middle" fill="var(--muted)">{k.slice(5)}</text>}</g>)}
+    </svg></div>;
+   })()}
+   <p className="muted" style={{fontSize:11,marginTop:8}}>Stream totals are assigned to each show’s first recorded sale date; this is not a transaction-by-transaction timeline. Late adjustments can change net earnings.</p>
+  </section>
   {!summary?.configured&&<div className="alertBox" role="alert">Whatnot API is not configured. Add your token securely in Vercel.</div>}
   <section className="wnIntLayout">
    <div className="surface wnIntLibrary"><div className="wnIntPanelHead"><div><div className="eyebrow">SHOW LIBRARY</div><h3>Livestreams <span className="wnIntCount">{filteredShows.length}</span></h3></div></div><input className="wnIntSearch" type="search" placeholder="Search shows or dates…" aria-label="Search Whatnot shows" value={filter} onChange={e=>setFilter(e.target.value)}/>
