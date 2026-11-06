@@ -2,7 +2,7 @@
 import {useCallback,useEffect,useMemo,useState} from 'react';
 import {supabase} from './supabase';
 
-type Session={id:string;title:string;startAt:string|null;minutes:number|null;gmv:number|null;orders:number|null;items:number|null;salesPerHour:number|null};
+type Session={id:string;title:string;startAt:string|null;minutes:number|null;gmv:number|null;orders:number|null;items:number|null;salesPerHour:number|null;profit?:number|null;profitPerHour?:number|null};
 const usd=(n:number)=>n.toLocaleString('en-US',{style:'currency',currency:'USD'});
 const clock=(n:number)=>`${Math.floor(n/60)}h ${Math.round(n%60)}m`;
 const date=(s:string|null)=>s?new Date(s).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'Date pending';
@@ -34,6 +34,7 @@ export default function TikTokLiveEfficiency(){
  const ordered=useMemo(()=>[...sessions].sort((a,b)=>(b.startAt||'').localeCompare(a.startAt||'')),[sessions]);
  const visible=useMemo(()=>ordered.filter(s=>`${s.title} ${s.startAt?date(s.startAt):''}`.toLowerCase().includes(query.toLowerCase())),[ordered,query]);
  const selected=ordered.find(s=>s.id===selectedId)||ordered[0]||null;
+ const selectedProfitPerHour=selected&&selected.minutes!==null&&selected.minutes>0?(typeof selected.profitPerHour==='number'&&Number.isFinite(selected.profitPerHour)?selected.profitPerHour:typeof selected.profit==='number'&&Number.isFinite(selected.profit)?selected.profit*60/selected.minutes:null):null;
  const totalGmv=ordered.reduce((sum,s)=>sum+(s.gmv??0),0);
  const totalMinutes=ordered.reduce((sum,s)=>sum+(s.minutes??0),0);
  const hasMinutes=ordered.some(s=>s.minutes!==null);
@@ -71,7 +72,9 @@ export default function TikTokLiveEfficiency(){
       <div><span>Session orders</span><strong>{selected.orders!==null?selected.orders.toLocaleString():'—'}</strong></div>
       <div><span>Orders / hour</span><strong>{selected.orders!==null&&selected.minutes!==null&&selected.minutes>0?(selected.orders*60/selected.minutes).toFixed(1):'—'}</strong></div>
       <div><span>Units sold</span><strong>{selected.items!==null?selected.items.toLocaleString():'—'}</strong></div>
-      <div><span>Profit / hour</span><strong className="ttIntUnavailable">Not reconciled</strong></div>
+      <div><span>Profit / hour</span><strong className={selectedProfitPerHour===null?'ttIntUnavailable':undefined}>{selectedProfitPerHour===null?'Not reconciled':usd(selectedProfitPerHour)}</strong></div>
+      <div><span>Profit margin</span><strong className="ttIntUnavailable">Not reconciled</strong></div>
+      <div><span>ROI on COGS</span><strong className="ttIntUnavailable">Not reconciled</strong></div>
      </div></section>
      <div className="ttIntTabs"><button type="button" className={detailTab==='performance'?'active':''} onClick={()=>setDetailTab('performance')}>Performance details</button><button type="button" className={detailTab==='notes'?'active':''} onClick={()=>setDetailTab('notes')}>Data notes</button></div>
      {detailTab==='performance'?<div className="ttIntBreakdown">
@@ -79,8 +82,8 @@ export default function TikTokLiveEfficiency(){
       <div><span>Broadcast duration</span><b>{selected.minutes!==null?clock(selected.minutes):'—'}</b></div>
       <div><span>GMV per hour</span><b>{selected.salesPerHour!==null?usd(selected.salesPerHour):'—'}</b></div>
       <div><span>Attributed LIVE orders</span><b>{selected.orders!==null?selected.orders.toLocaleString():'—'}</b></div>
-      <div><span>Profit per hour</span><b>Not reconciled</b></div>
-     </div>:<div className="ttIntDataNotes">TikTok LIVE GMV is session-attributed and not the same as settled product sales. This stream does not have verified session-level COGS, commissions, refunds, and seller-paid shipping. Profit is deliberately not estimated from shop-wide totals.</div>}
+      <div><span>Profit per hour</span><b>{selectedProfitPerHour===null?'Not reconciled':usd(selectedProfitPerHour)}</b></div>
+     </div>:<div className="ttIntDataNotes">TikTok LIVE GMV is session-attributed and not the same as settled product sales. Profit per hour, margin, and ROI require verified stream-level profit and COGS. Profit per hour is displayed only when reconciled stream profit is provided. Profit is deliberately not estimated from shop-wide totals.</div>}
     </>:<div className="ttIntEmpty">{loading?'Loading stream data…':'Select a livestream when LIVE analytics are available.'}</div>}
    </div>
   </div>
