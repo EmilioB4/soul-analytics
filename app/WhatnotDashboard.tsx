@@ -76,27 +76,32 @@ export default function WhatnotDashboard(){
    <div className="wnIntMetric"><span>Tracked stream profit</span><strong className={missing?'wnIntSoft':'wnIntAccent'}>{reconciled.length?usd(totalProfit):'—'}</strong><small>{missing?`${missing} show${missing===1?'':'s'} still need COGS · partial total`:'Shows with saved COGS only'}</small></div>
    <div className="wnIntMetric"><span>Financial transactions</span><strong>{finance?number(filteredEntries):'—'}</strong><small>{summary?.configured?'API configured · automated ledger':'Connection required'}</small></div>
   </div>
-  <section className="surface" style={{padding:'22px 24px',marginBottom:22}} aria-label="Whatnot sales and earnings trend">
-   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap',marginBottom:12}}><div><div className="eyebrow">WHATNOT PERFORMANCE</div><h3 style={{margin:'6px 0'}}>Merchandise sales &amp; net earnings</h3><p className="muted" style={{margin:0}}>By first recorded sale date · selected reporting period</p></div><div style={{display:'flex',gap:16,fontSize:12,flexWrap:'wrap'}}><span style={{color:'#7BE9EF'}}>● Merchandise sales</span><span style={{color:'#C39BFF'}}>● Net earnings</span></div></div>
+  <section className="surface chartCard" aria-label="Whatnot sales over time">
+   <div className="surfaceHeader"><div><div className="eyebrow">SALES PERFORMANCE</div><h2>Sales over time</h2><p className="muted">Settled merchandise sales from your imported Whatnot streams</p></div><div className="chartTotal">{finance?usd(filteredGross):'—'}<small>{whatnotPeriodNames[period]}</small></div></div>
    {(() => {
-    const grouped=new Map<string,{gross:number;earnings:number}>();
-    for(const st of filteredShows){if(!st.firstSaleAt)continue;const key=dateOf(st.firstSaleAt);const old=grouped.get(key)||{gross:0,earnings:0};grouped.set(key,{gross:old.gross+st.gross,earnings:old.earnings+st.earnings});}
-    const keys=[...grouped.keys()].sort();
-    if(!keys.length)return <div className="wnIntEmpty" style={{minHeight:170,display:'grid',placeItems:'center'}}>No dated Whatnot sales for this reporting period.</div>;
-    const W=900,H=260,L=78,R=20,T=18,B=42,plotW=W-L-R,plotH=H-T-B;
-    const values=keys.flatMap(k=>[grouped.get(k)!.gross,grouped.get(k)!.earnings]);
-    const low=Math.min(0,...values),high=Math.max(0,...values);const span=Math.max(1,high-low);
-    const x=(i:number)=>L+(keys.length===1?plotW/2:i*plotW/(keys.length-1));
-    const y=(v:number)=>T+(high-v)/span*plotH;
-    const line=(field:'gross'|'earnings')=>keys.map((k,i)=>`${i?'L':'M'} ${x(i).toFixed(1)} ${y(grouped.get(k)![field]).toFixed(1)}`).join(' ');
-    const tickStep=Math.max(1,Math.ceil(keys.length/7));
-    return <div style={{overflowX:'auto'}}><svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Whatnot merchandise sales and net earnings by first sale date" style={{display:'block',width:'100%',minWidth:480}}>
-     {[0,.25,.5,.75,1].map(t=><g key={t}><line x1={L} x2={W-R} y1={T+t*plotH} y2={T+t*plotH} stroke="var(--border)" strokeDasharray="4 6"/><text x={L-12} y={T+t*plotH+4} textAnchor="end" fontSize="11" fill="var(--muted)">{usd(high-t*span)}</text></g>)}
-     <path d={line('gross')} fill="none" stroke="#7BE9EF" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round"/><path d={line('earnings')} fill="none" stroke="#C39BFF" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round"/>
-     {keys.map((k,i)=><g key={k}><circle cx={x(i)} cy={y(grouped.get(k)!.gross)} r="4" fill="#7BE9EF"><title>{`${k} · Merchandise sales: ${usd(grouped.get(k)!.gross)}`}</title></circle><circle cx={x(i)} cy={y(grouped.get(k)!.earnings)} r="4" fill="#C39BFF"><title>{`${k} · Net earnings: ${usd(grouped.get(k)!.earnings)}`}</title></circle>{(i%tickStep===0||i===keys.length-1)&&<text x={x(i)} y={H-12} fontSize="11" textAnchor="middle" fill="var(--muted)">{k.slice(5)}</text>}</g>)}
+    const days=new Map<string,number>();
+    for(const st of filteredShows){if(!st.firstSaleAt)continue;const d=dateOf(st.firstSaleAt);const key=period==='ytd'?d.slice(0,7):d;days.set(key,(days.get(key)||0)+st.gross);}
+    const keys:string[]=[];
+    if(dateReady&&bounds.start&&bounds.end){
+     if(period==='ytd'){for(let m=1;m<=Number(bounds.end.slice(5,7));m++)keys.push(`${bounds.start.slice(0,4)}-${String(m).padStart(2,'0')}`);}
+     else {const cursor=new Date(`${bounds.start}T12:00:00Z`);const endDate=new Date(`${bounds.end}T12:00:00Z`);while(cursor<=endDate&&keys.length<370){keys.push(cursor.toISOString().slice(0,10));cursor.setUTCDate(cursor.getUTCDate()+1);}}
+    }
+    if(!keys.length)return <div className="empty">Select a reporting period to see sales.</div>;
+    const w=900,h=280,left=65,top=16,bottom=43,right=16,plotW=w-left-right,plotH=h-top-bottom;
+    const max=Math.max(1,...keys.map(k=>days.get(k)||0))*1.16;
+    const coords=keys.map((k,i)=>({x:left+(keys.length===1?plotW/2:i*plotW/(keys.length-1)),y:top+plotH-((days.get(k)||0)/max)*plotH}));
+    const line=coords.map((p,i)=>`${i===0?'M':'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const area=line+` L${coords[coords.length-1].x},${top+plotH} L${coords[0].x},${top+plotH} Z`;
+    const every=Math.max(1,Math.ceil(keys.length/9));
+    const display=(k:string)=>period==='ytd'?new Date(`${k}-01T12:00:00Z`).toLocaleDateString('en-US',{month:'short',timeZone:'UTC'}):new Date(`${k}T12:00:00Z`).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
+    return <div className="chartArea"><div className="chartHint">Merchandise sales subtotal · USD <span>Hover over points for details</span></div><svg className="salesChart" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Whatnot merchandise sales over time">
+     <defs><linearGradient id="whatnotSalesArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#7BE9EF" stopOpacity=".28"/><stop offset="1" stopColor="#7BE9EF" stopOpacity="0"/></linearGradient></defs>
+     {[0,.25,.5,.75,1].map(v=><g key={v}><line x1={left} x2={w-right} y1={top+plotH*(1-v)} y2={top+plotH*(1-v)} stroke="#283340" strokeDasharray="4 7"/><text x={left-12} y={top+plotH*(1-v)+4} textAnchor="end" fill="#8294a1" fontSize="12">${Math.round(max*v).toLocaleString()}</text></g>)}
+     <path d={area} fill="url(#whatnotSalesArea)"/><path d={line} fill="none" stroke="#7BE9EF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+     {coords.map((pt,i)=><g key={keys[i]}><circle cx={pt.x} cy={pt.y} r="3.5" fill="#7BE9EF" stroke="#0c151c" strokeWidth="2"><title>{`${display(keys[i])}: ${usd(days.get(keys[i])||0)}`}</title></circle><rect x={Math.max(left,pt.x-plotW/keys.length/2)} y={top} width={Math.max(7,plotW/keys.length)} height={plotH} fill="transparent"><title>{`${display(keys[i])}: ${usd(days.get(keys[i])||0)}`}</title></rect>{(i%every===0||i===keys.length-1)&&<text x={pt.x} y={h-15} textAnchor="middle" fill="#8da3ad" fontSize="12">{display(keys[i])}</text>}</g>)}
     </svg></div>;
    })()}
-   <p className="muted" style={{fontSize:11,marginTop:8}}>Stream totals are assigned to each show’s first recorded sale date; this is not a transaction-by-transaction timeline. Late adjustments can change net earnings.</p>
+   <p className="muted" style={{fontSize:11,marginTop:8}}>Sales are attributed to each stream’s first recorded sale date, not individual transaction timestamps.</p>
   </section>
   {!summary?.configured&&<div className="alertBox" role="alert">Whatnot API is not configured. Add your token securely in Vercel.</div>}
   <section className="wnIntLayout">
