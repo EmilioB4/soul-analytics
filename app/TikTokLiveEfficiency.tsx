@@ -13,6 +13,7 @@ export default function TikTokLiveEfficiency(){
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState('');
  const [coverage,setCoverage]=useState('');
+ const [shopRates,setShopRates]=useState<{margin:number;cogsRate:number;partial:boolean}|null>(null);
  const [selectedId,setSelectedId]=useState<string|null>(null);
  const [query,setQuery]=useState('');
  const [detailTab,setDetailTab]=useState<'performance'|'notes'>('performance');
@@ -24,7 +25,21 @@ export default function TikTokLiveEfficiency(){
    const r=await fetch('/api/tiktok/live-efficiency',{headers:{Authorization:`Bearer ${data.session.access_token}`},cache:'no-store'});
    const j=await r.json();
    if(!r.ok)throw Error(j.error||'LIVE analytics unavailable');
-   setSessions(Array.isArray(j.sessions)?j.sessions:[]);
+   const loadedSessions:Session[]=Array.isArray(j.sessions)?j.sessions:[];
+   setSessions(loadedSessions);
+   setShopRates(null);
+   const dated=loadedSessions.map(s=>s.startAt).filter((v):v is string=>!!v).sort();
+   if(dated.length){
+    // Apply the existing shop-wide priced-order profit model to session GMV.
+    // This is an estimate, not an attribution of actual orders to the LIVE session.
+    const q=new URLSearchParams({period:'custom',start:dated[0].slice(0,10),end:dated[dated.length-1].slice(0,10)});
+    const ar=await fetch(`/api/analytics?${q}`,{headers:{Authorization:`Bearer ${data.session.access_token}`},cache:'no-store'});
+    if(ar.ok){const a=await ar.json();const p=a.profitEstimate;
+     if(p&&typeof p.profit==='number'&&p.pricedSales>0&&typeof p.cogs==='number'&&p.cogs>0){
+      setShopRates({margin:p.profit/p.pricedSales,cogsRate:p.cogs/p.pricedSales,partial:!!p.partial});
+     }
+    }
+   }
    setCoverage(j.coverage||'');
    setError('');
   }catch(e){setError(e instanceof Error?e.message:'LIVE analytics unavailable');}
@@ -35,6 +50,13 @@ export default function TikTokLiveEfficiency(){
  const visible=useMemo(()=>ordered.filter(s=>`${s.title} ${s.startAt?date(s.startAt):''}`.toLowerCase().includes(query.toLowerCase())),[ordered,query]);
  const selected=ordered.find(s=>s.id===selectedId)||ordered[0]||null;
  const selectedProfitPerHour=selected&&selected.minutes!==null&&selected.minutes>0?(typeof selected.profitPerHour==='number'&&Number.isFinite(selected.profitPerHour)?selected.profitPerHour:typeof selected.profit==='number'&&Number.isFinite(selected.profit)?selected.profit*60/selected.minutes:null):null;
+ const estimatedSales=selected?.gmv??null;
+ const estimatedProfit=estimatedSales!==null&&shopRates?estimatedSales*shopRates.margin:null;
+ const estimatedCogs=estimatedSales!==null&&shopRates?estimatedSales*shopRates.cogsRate:null;
+ const estimatedMargin=shopRates?shopRates.margin*100:null;
+ const estimatedRoi=estimatedProfit!==null&&estimatedCogs!==null&&estimatedCogs>0?estimatedProfit/estimatedCogs*100:null;
+ const estimatedProfitHour=estimatedProfit!==null&&selected?.minutes!=null&&selected.minutes>0?estimatedProfit*60/selected.minutes:null;
+ const percent=(n:number)=>`${n.toFixed(1)}%`;
  const totalGmv=ordered.reduce((sum,s)=>sum+(s.gmv??0),0);
  const totalMinutes=ordered.reduce((sum,s)=>sum+(s.minutes??0),0);
  const hasMinutes=ordered.some(s=>s.minutes!==null);
@@ -72,10 +94,10 @@ export default function TikTokLiveEfficiency(){
       <div><span>Session orders</span><strong>{selected.orders!==null?selected.orders.toLocaleString():'—'}</strong></div>
       <div><span>Orders / hour</span><strong>{selected.orders!==null&&selected.minutes!==null&&selected.minutes>0?(selected.orders*60/selected.minutes).toFixed(1):'—'}</strong></div>
       <div><span>Units sold</span><strong>{selected.items!==null?selected.items.toLocaleString():'—'}</strong></div>
-      <div><span>Profit / hour</span><strong className={selectedProfitPerHour===null?'ttIntUnavailable':undefined}>{selectedProfitPerHour===null?'Not reconciled':usd(selectedProfitPerHour)}</strong></div>
-      <div><span>Profit margin</span><strong className="ttIntUnavailable">Not reconciled</strong></div>
-      <div><span>ROI on COGS</span><strong className="ttIntUnavailable">Not reconciled</strong></div>
-     </div></section>
+      <div><span>Est. profit / hour</span><strong className={estimatedProfitHour===null?'ttIntUnavailable':undefined}>{estimatedProfitHour===null?'—':usd(estimatedProfitHour)}</strong></div>
+      <div><span>Est. profit margin</span><strong className={estimatedMargin===null?'ttIntUnavailable':undefined}>{estimatedMargin===null?'—':percent(estimatedMargin)}</strong></div>
+      <div><span>Est. ROI on COGS</span><strong className={estimatedRoi===null?'ttIntUnavailable':undefined}>{estimatedRoi===null?'—':percent(estimatedRoi)}</strong></div>
+     </div><p className="muted" style={{fontSize:12,marginTop:12}}>Estimated using the shop-wide profit and COGS rates from imported priced orders across the returned LIVE date range{shopRates?.partial?" (partial cost coverage)":""}. These are not reconciled stream-specific profits.</p></section>
      <div className="ttIntTabs"><button type="button" className={detailTab==='performance'?'active':''} onClick={()=>setDetailTab('performance')}>Performance details</button><button type="button" className={detailTab==='notes'?'active':''} onClick={()=>setDetailTab('notes')}>Data notes</button></div>
      {detailTab==='performance'?<div className="ttIntBreakdown">
       <div><span>LIVE GMV</span><b>{selected.gmv!==null?usd(selected.gmv):'—'}</b></div>
