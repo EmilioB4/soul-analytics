@@ -28,7 +28,7 @@ export async function POST(req:NextRequest){
    orders+=items.length;
    for(const raw of items){const order=obj(raw);const po=str(order.purchaseOrderId||order.customerOrderId);const created=str(order.orderDate||order.createdDate);const date=created.slice(0,10);if(!po||!/^\d{4}-\d{2}-\d{2}$/.test(date))continue;
     const lines=arr(obj(order.orderLines).orderLine);
-    for(let index=0;index<lines.length;index++){const line=obj(lines[index]);const item=obj(line.item);const charges=arr(obj(line.charges).charge);const price=charges.filter(c=>str(obj(c).chargeType).toUpperCase()==='PRODUCT').reduce((s,c)=>s+amount(obj(c).chargeAmount),0);const qty=Number(obj(line.orderLineQuantity).amount)||1;
+    for(let index=0;index<lines.length;index++){const line=obj(lines[index]);const item=obj(line.item);const charges=arr(obj(line.charges).charge);const price=charges.filter(c=>str(obj(c).chargeType).toUpperCase()==='PRODUCT').reduce<number>((total,c)=>total+amount(obj(c).chargeAmount),0);const qty=Number(obj(line.orderLineQuantity).amount)||1;
      const status=str(obj(arr(obj(line.orderLineStatuses).orderLineStatus)[0]).status).toLowerCase();if(status==='cancelled')continue;
      const methodText=str(order.fulfillmentMethod||line.fulfillmentMethod||obj(order.shippingInfo).fulfillmentMethod).toUpperCase();const fulfillment=methodText.includes('WFS')||methodText.includes('WALMART')?'WFS':methodText.includes('SELLER')?'SF':'Unknown';
      rows.push({owner_id:user.id,order_id:po,line_id:str(line.lineNumber||index+1),order_date:date,sku:str(item.sku||line.sku||'UNKNOWN'),product_name:str(item.productName||item.productNameValue||item.sku||'Unknown product'),fulfillment,quantity:qty,revenue:price});
