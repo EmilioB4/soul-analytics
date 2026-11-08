@@ -95,6 +95,25 @@ export default function Home(){
  const selectedWhatnotEarnings=selectedWhatnotStreams.reduce((sum,stream)=>sum+stream.earnings,0);
  const selectedWhatnotProfit=selectedWhatnotStreams.reduce((sum,stream)=>sum+(stream.profit??0),0);
  const selectedWhatnotProfitComplete=selectedWhatnotStreams.every(stream=>stream.cogs!==null&&stream.profit!==null);
+ const pnlTikTok=analytics?.profitEstimate;
+ const pnlTikTokRevenue=pnlTikTok?.pricedSales??null;
+ const pnlTikTokCogs=pnlTikTok?.cogs??null;
+ const pnlTikTokFees=pnlTikTok?.fees??null;
+ const pnlTikTokShipping=pnlTikTok?.shipping??null;
+ const pnlTikTokProfit=pnlTikTok?.profit??null;
+ const pnlWhatnotReady=whatnotLoaded&&!!analytics;
+ const pnlWhatnotCogs=pnlWhatnotReady&&selectedWhatnotProfitComplete?selectedWhatnotStreams.reduce((sum,stream)=>sum+(stream.cogs??0),0):null;
+ const pnlWhatnotProfit=pnlWhatnotReady&&selectedWhatnotProfitComplete?selectedWhatnotProfit:null;
+ const pnlWhatnotDeductions=pnlWhatnotReady?selectedWhatnotGross-selectedWhatnotEarnings:null;
+ const pnlBothReady=pnlTikTokRevenue!==null&&pnlWhatnotReady;
+ const pnlCombinedRevenue=pnlBothReady?pnlTikTokRevenue+selectedWhatnotGross:null;
+ const pnlCombinedCogs=pnlTikTokCogs!==null&&pnlWhatnotCogs!==null?pnlTikTokCogs+pnlWhatnotCogs:null;
+ const pnlCombinedDeductions=pnlTikTokFees!==null&&pnlTikTokShipping!==null&&pnlWhatnotDeductions!==null?pnlTikTokFees+pnlTikTokShipping+pnlWhatnotDeductions:null;
+ const pnlCombinedProfit=pnlTikTokProfit!==null&&pnlWhatnotProfit!==null?pnlTikTokProfit+pnlWhatnotProfit:null;
+ const pnlPercent=(numerator:number|null,denominator:number|null)=>numerator!==null&&denominator!==null&&denominator>0?`${(numerator/denominator*100).toFixed(1)}%`:'—';
+ const pnlAmount=(value:number|null)=>value===null?'—':money(value);
+ const pnlPartial=!!pnlTikTok?.partial||!selectedWhatnotProfitComplete||!pnlBothReady;
+
 
  const [bankPayouts,setBankPayouts]=useState<{connected:boolean;candidateTotal?:number}|null>(null);
  const handleOfficialSummary=useCallback((data:{unsettledAmount:number|null;paidTotal:number|null;processingTotal:number|null}|null)=>setOfficialPayouts(data),[]);
@@ -130,7 +149,23 @@ export default function Home(){
    <section className="surface platformTile"><div className="platformTileHeader"><span className="platformTag platformTagWithIcon"><PlatformIcon platform="whatnot" size={18}/>WHATNOT</span><span className={`platformState ${whatnotFinance?.ledgerEntries?'ready':'pending'}`}>{whatnotFinance?.ledgerEntries?'Financials imported':'Awaiting reports'}</span></div><div className="platformTileStats"><div><span>Settled merchandise sales</span><strong>{whatnotLoaded&&analytics?money(selectedWhatnotGross):'—'}</strong></div><div><span>Net ledger earnings</span><strong>{whatnotLoaded&&analytics?money(selectedWhatnotEarnings):'—'}</strong></div><div><span>Contribution profit</span><strong>{whatnotLoaded&&analytics?(selectedWhatnotProfitComplete?money(selectedWhatnotProfit):'COGS pending'):'—'}</strong></div></div><p className="platformTileFoot">Whatnot streams with dated sales in the selected period · undated and unassigned ledger entries excluded.</p><button className="outlineBtn" onClick={()=>setTab('whatnot')}>View Whatnot →</button></section>
   </div>
   <PlatformCompareChart bins={analytics?.bins||[]} period={period} startDate={analytics?.start||""} whatnot={whatnotFinance} loaded={whatnotLoaded}/>
-  <section className="surface combinedStatus"><div><div className="eyebrow">CONSOLIDATED REPORTING</div><h2>Combined P&amp;L</h2><p className="muted">Whatnot settled figures are now visible above. A single combined financial total requires matching date ranges and completed stream COGS—so we do not mix incompatible periods or treat payouts as revenue.</p></div><span className="platformState pending">Date reconciliation pending</span></section>
+  <section className="surface combinedStatus" style={{display:'block'}}>
+   <div style={{display:'flex',justifyContent:'space-between',alignItems:'start',gap:16,flexWrap:'wrap',marginBottom:18}}><div><div className="eyebrow">CONSOLIDATED REPORTING</div><h2>Combined P&amp;L</h2><p className="muted" style={{marginBottom:0}}>TikTok Shop + Whatnot · {analytics?`${analytics.start} — ${analytics.end}`:'Selected reporting period'}</p></div><span className={`platformState ${pnlPartial?'pending':'ready'}`}>{pnlPartial?'Estimated / partial':'Costs assigned · estimated'}</span></div>
+   <div className="metricGrid" style={{marginBottom:18}}>
+    {([{label:'Combined merchandise revenue',value:pnlAmount(pnlCombinedRevenue),note:'TikTok costed sales + dated Whatnot stream sales'},{label:'Combined estimated profit',value:pnlAmount(pnlCombinedProfit),note:'Available profit after costs and deductions'},{label:'Combined COGS',value:pnlAmount(pnlCombinedCogs),note:'TikTok assigned costs + Whatnot stream COGS'},{label:'Fees & net deductions',value:pnlAmount(pnlCombinedDeductions),note:'TikTok assumed fees/shipping + Whatnot ledger difference'},{label:'Profit margin',value:pnlPercent(pnlCombinedProfit,pnlCombinedRevenue),note:'Profit ÷ included merchandise revenue'},{label:'ROI on COGS',value:pnlPercent(pnlCombinedProfit,pnlCombinedCogs),note:'Profit ÷ assigned product costs'}] as const).map(item=><div className="metricCard" key={item.label}><div className="metricLabel">{item.label}</div><div className="metricValue" style={{fontSize:'clamp(19px,2vw,27px)'}}>{item.value}</div><div className="metricNote">{item.note}</div></div>)}
+   </div>
+   <h3 style={{margin:'8px 0 12px'}}>Platform breakdown</h3>
+   <div className="tableScroll"><table className="modernTable"><thead><tr><th>Metric</th><th className="number">TikTok Shop</th><th className="number">Whatnot</th><th className="number">Combined</th></tr></thead><tbody>
+    <tr><td>Included merchandise revenue</td><td className="number">{pnlAmount(pnlTikTokRevenue)}</td><td className="number">{pnlWhatnotReady?money(selectedWhatnotGross):'—'}</td><td className="number">{pnlAmount(pnlCombinedRevenue)}</td></tr>
+    <tr><td>COGS</td><td className="number">{pnlAmount(pnlTikTokCogs)}</td><td className="number">{pnlAmount(pnlWhatnotCogs)}</td><td className="number">{pnlAmount(pnlCombinedCogs)}</td></tr>
+    <tr><td>Fees, shipping &amp; ledger deductions</td><td className="number">{pnlTikTokFees!==null&&pnlTikTokShipping!==null?money(pnlTikTokFees+pnlTikTokShipping):'—'}</td><td className="number">{pnlAmount(pnlWhatnotDeductions)}</td><td className="number">{pnlAmount(pnlCombinedDeductions)}</td></tr>
+    <tr><td><strong>Estimated profit</strong></td><td className="number">{pnlAmount(pnlTikTokProfit)}</td><td className="number">{pnlAmount(pnlWhatnotProfit)}</td><td className="number"><strong>{pnlAmount(pnlCombinedProfit)}</strong></td></tr>
+    <tr><td>Profit margin</td><td className="number">{pnlPercent(pnlTikTokProfit,pnlTikTokRevenue)}</td><td className="number">{pnlPercent(pnlWhatnotProfit,pnlWhatnotReady?selectedWhatnotGross:null)}</td><td className="number">{pnlPercent(pnlCombinedProfit,pnlCombinedRevenue)}</td></tr>
+    <tr><td>ROI on COGS</td><td className="number">{pnlPercent(pnlTikTokProfit,pnlTikTokCogs)}</td><td className="number">{pnlPercent(pnlWhatnotProfit,pnlWhatnotCogs)}</td><td className="number">{pnlPercent(pnlCombinedProfit,pnlCombinedCogs)}</td></tr>
+   </tbody></table></div>
+   <p className="muted" style={{fontSize:12,margin:'14px 0 0'}}>TikTok figures cover only sales with assigned product costs, use an assumed 6% fee, and may omit refunds or shipping. Whatnot figures cover dated streams, with net ledger earnings before COGS; the difference between gross and earnings includes signed fees, shipping, refunds and adjustments. Undated/unassigned ledger entries are excluded. Missing Whatnot stream costs suppress its profit and combined profit rather than counting missing costs as $0. Payouts and bank deposits are never added to revenue. These are operational estimates, not finalized accounting statements.</p>
+   {pnlTikTok?.partial&&<p className="muted" style={{fontSize:12,marginTop:8}}>TikTok cost coverage is partial: {pnlTikTok.unpricedSkuCount} SKU lines without assigned costs; shipping or imported order coverage may also be incomplete.</p>}
+  </section>
  </>}
  {tab==='whatnot'&&<WhatnotDashboard/>}
  {tab==='overview'&&<><div className="dashboardGrid" style={{gridTemplateColumns:'minmax(0,1fr)'}}><section className="surface chartCard"><div className="surfaceHeader"><div><div className="eyebrow">SALES PERFORMANCE</div><h2>Sales over time</h2><p className="muted">Product subtotals from your imported TikTok orders</p></div><div className="chartTotal">{analytics?money(analytics.total):'—'}<small>{periodNames[period]}</small></div></div><SalesChart bins={analytics?.bins||[]} period={period}/></section><section className="surface sellersCard"><div className="surfaceHeader"><div><div className="eyebrow">BEST PERFORMERS</div><h2>Top sellers</h2><p className="muted">Ranked by units sold</p></div><button className="miniLink" onClick={()=>setTab('products')}>All products ↗</button></div><div className="sellerList">{analytics?.topSellers?.length?analytics.topSellers.map((p,i)=><div className="seller" key={p.skuId}><span className="rank">{String(i+1).padStart(2,'0')}</span>{p.image?<img src={p.image} alt="" referrerPolicy="no-referrer"/>:<div className="sellerFallback">◈</div>}<div className="sellerInfo"><b title={p.name}>{p.name}</b><small>{p.quantity} sold · Avg {p.quantity>0?money(p.sales/p.quantity):'—'}</small></div><strong>{money(p.sales)}</strong></div>):<div className="empty">Top sellers will appear after an order sync with product lines.</div>}</div></section></div><TikTokLiveEfficiency/><section className="surface quickSection"><div><div className="eyebrow">QUICK ACTIONS</div><h2>Keep your data current</h2><p className="muted">Order imports are manual for now. Finance imports are available in the Financials tab.</p></div><button className="primaryBtn" onClick={syncOrders} disabled={syncBusy||!tiktokConnected}>{syncBusy?'Syncing…':'↻  Sync last 30 days'}</button></section>{syncMessage&&<div className="alertBox">{syncMessage}</div>}</>}
