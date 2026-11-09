@@ -5,7 +5,9 @@ export function walmartOrderDate(value: unknown): string | null {
   if (typeof input !== 'string' && typeof input !== 'number') return null;
   const numeric = typeof input === 'number' || /^\d+$/.test(input);
   const date = new Date(numeric ? Number(input) : input);
-  return Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) : null;
+  if(!Number.isFinite(date.getTime()))return null;
+  if(typeof input==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(input))return date.toISOString().slice(0,10)===input?input:null;
+  return new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
 }
 
 // nextCursor may be a query string containing limit and an encoded cursor.

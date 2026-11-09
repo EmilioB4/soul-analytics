@@ -40,3 +40,6 @@ test('explicit fulfillment filters include WFS on first and subsequent pages', (
     assert.equal(url.searchParams.get('shipNodeType'), 'WFSFulfilled');
   }
 });
+
+
+test('order timestamps respect New York dates while CSV date literals are preserved',()=>{assert.equal(walmartOrderDate('2026-11-08T02:00:00Z'),'2026-11-07');assert.equal(walmartOrderDate('2026-11-08'),'2026-11-08');});
