@@ -23,9 +23,9 @@ Year-to-date and All include imported orders only. A date selector does not crea
 
 ## Refunds before settlement
 
-The signed-in owner reads confirmed refunded lines from Walmart's `/v3/returns` API. No payment settlement is required. Product/shipping charges are calculated separately from sales tax; pending requests and replacements are not blindly counted as refunds. Pagination must complete, or data is withheld rather than silently treating refunds as zero. Returns API access is required on the existing Walmart API key.
+The signed-in owner reads confirmed refunded lines from Walmart's `/v3/returns` API. No payment settlement is required. Product/shipping charges are calculated separately from sales tax; pending requests and replacements are not blindly counted as refunds. Pagination must complete for refunds to be marked current. The Returns request uses documented unfiltered pagination (limit 100) and applies reporting dates locally, avoiding the failing optional modified-date filter. Returns API access is required on the existing Walmart API key.
 
-When a matching settlement refund arrives, only the still-uncovered Returns API amount is added. Refunds are not deducted twice. Unknown/unmatched/malformed data is not treated as proof of a zero refund. Expected profit is withheld if refund access fails.
+When a matching settlement refund arrives, only the still-uncovered Returns API amount is added. Refunds are not deducted twice. Unknown/unmatched/malformed data is not treated as proof of a zero refund. If refund access fails, sales and profit after known adjustments remain visible with incomplete/before-unreported-refunds labels. The refunded-unit total is unknown, not zero. Known adjustments remain applied; a later successful retry restores the normal net-sales/profit labels.
 
 ## Returned goods and COGS
 
