@@ -49,7 +49,7 @@ export async function POST(req:NextRequest){
      const cancelled=statuses.length>0&&statuses.every(s=>str(obj(s).status).toLowerCase().includes('cancel'));
      if(cancelled)continue;
      const charges=arr(obj(line.charges).charge);
-     const price=charges.filter(c=>str(obj(c).chargeType).toUpperCase()==='PRODUCT').reduce((sum,c)=>sum+money(obj(c).chargeAmount),0);
+     const price=charges.filter(c=>str(obj(c).chargeType).toUpperCase()==='PRODUCT').reduce((sum:number,c:unknown)=>sum+money(obj(c).chargeAmount),0);
      const method=str(order.fulfillmentMethod||line.fulfillmentMethod||obj(order.shippingInfo).fulfillmentMethod||obj(order.shippingInfo).fulfillmentType).toUpperCase();
      const fulfillment=method.includes('WFS')||method.includes('WALMART')?'WFS':method.includes('SELLER')?'SF':'Unknown';
      rows.push({owner_id:user.id,order_id:po,line_id:str(line.lineNumber??index+1),order_date:date,sku:str(item.sku||line.sku||'UNKNOWN'),product_name:str(item.productName||item.sku||'Unknown product'),fulfillment,quantity:qty,revenue:price});
