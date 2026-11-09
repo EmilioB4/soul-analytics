@@ -1,8 +1,0 @@
-1. Extract this ZIP.
-2. Open your GitHub repository at its main folder.
-3. Choose Add file > Upload files.
-4. Drag the extracted app and lib folders into the upload area together. Preserve the folder structure.
-5. Commit changes and wait for Vercel to deploy.
-6. Click Sync Walmart orders.
-
-This replaces app/api/walmart/sync/route.ts and adds lib/walmart.ts. No environment variable or database changes are included. Four focused date and pagination tests passed. Live API calls and a full build were not run.

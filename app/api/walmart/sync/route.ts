@@ -1,5 +1,6 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {owner,db} from '../../../../lib/tiktok';
+import {walmartOrderDate,walmartOrdersUrl} from '../../../../lib/walmart';
 export const runtime='nodejs';
 export const maxDuration=60;
 type Obj=Record<string,unknown>;
@@ -22,24 +23,26 @@ export async function POST(req:NextRequest){
   const since=new Date(Date.now()-89*86400000).toISOString();
   const diagnostics:{dateRange:string;pages:number;responseShapes:string[];rawOrders:number;skippedOrders:number;skippedLines:number;nextCursorPresent:boolean}={dateRange:`${since} to now (last 90 days)`,pages:0,responseShapes:[],rawOrders:0,skippedOrders:0,skippedLines:0,nextCursorPresent:false};
   const rows:Obj[]=[];
+  const fulfillmentCounts:Record<string,number>={};
+  let incomplete=false;
+  for(const shipNodeType of ['SellerFulfilled','WFSFulfilled'] as const){
   let cursor='';
+  fulfillmentCounts[shipNodeType]=0;
   for(let page=0;page<15;page++){
-   const url=new URL('https://marketplace.walmartapis.com/v3/orders');
-   url.searchParams.set('limit','200');
-   if(cursor)url.searchParams.set('nextCursor',cursor);
-   else url.searchParams.set('createdStartDate',since);
+   const url=walmartOrdersUrl(since,cursor,shipNodeType);
    const res=await fetch(url.toString(),{headers:{'WM_SEC.ACCESS_TOKEN':token,'WM_SVC.NAME':'Walmart Marketplace','WM_QOS.CORRELATION_ID':crypto.randomUUID(),Accept:'application/json'},cache:'no-store'});
    const body:unknown=await res.json().catch(async()=>({raw:(await res.text().catch(()=>'' )).slice(0,400)}));
    if(!res.ok)return NextResponse.json({error:`Walmart orders HTTP ${res.status}: ${errorText(body)}`,diagnostics},{status:502});
    diagnostics.pages++;
    const root=obj(body),list=obj(root.list),elements=obj(list.elements);
    if(page===0)diagnostics.responseShapes=[`root: ${Object.keys(root).join(', ')}`,`list: ${Object.keys(list).join(', ')}`,`elements: ${Object.keys(elements).join(', ')}`];
-   const rawOrders=arr(elements.order??list.order??root.orders??obj(root.orders).order);
+   const rawOrders=arr(elements.order??list.order??obj(root.orders).order??root.orders);
    diagnostics.rawOrders+=rawOrders.length;
+   fulfillmentCounts[shipNodeType]+=rawOrders.length;
    for(const raw of rawOrders){
     const order=obj(raw),po=str(order.purchaseOrderId||order.customerOrderId);
-    const date=str(order.orderDate||order.createdDate).slice(0,10);
-    if(!po||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date)){diagnostics.skippedOrders++;continue;}
+    const date=walmartOrderDate(order.orderDate??order.createdDate);
+    if(!po||!date){diagnostics.skippedOrders++;continue;}
     const lines=arr(obj(order.orderLines).orderLine??order.orderLine);
     for(let index=0;index<lines.length;index++){
      const line=obj(lines[index]),item=obj(line.item);
@@ -50,7 +53,7 @@ export async function POST(req:NextRequest){
      if(cancelled)continue;
      const charges=arr(obj(line.charges).charge);
      const price=charges.filter(c=>str(obj(c).chargeType).toUpperCase()==='PRODUCT').reduce((sum:number,c:unknown)=>sum+money(obj(c).chargeAmount),0);
-     const method=str(order.fulfillmentMethod||line.fulfillmentMethod||obj(order.shippingInfo).fulfillmentMethod||obj(order.shippingInfo).fulfillmentType).toUpperCase();
+     const method=str(obj(order.shipNode).type||order.fulfillmentMethod||line.fulfillmentMethod||obj(order.shippingInfo).fulfillmentMethod||obj(order.shippingInfo).fulfillmentType||shipNodeType).toUpperCase();
      const fulfillment=method.includes('WFS')||method.includes('WALMART')?'WFS':method.includes('SELLER')?'SF':'Unknown';
      rows.push({owner_id:user.id,order_id:po,line_id:str(line.lineNumber??index+1),order_date:date,sku:str(item.sku||line.sku||'UNKNOWN'),product_name:str(item.productName||item.sku||'Unknown product'),fulfillment,quantity:qty,revenue:price});
     }
@@ -61,12 +64,15 @@ export async function POST(req:NextRequest){
    if(!next||next===cursor)break;
    cursor=next;
   }
-  if(diagnostics.rawOrders===0){
-   return NextResponse.json({orders:0,lines:0,feeSync:false,warning:'Walmart returned zero orders for the last 90 days. No records were imported. Check the date range and the response shape below.',diagnostics});
+  incomplete ||= diagnostics.nextCursorPresent;
   }
-  if(rows.length===0)return NextResponse.json({orders:diagnostics.rawOrders,lines:0,feeSync:false,warning:'Walmart returned orders, but none produced importable lines. See diagnostics.',diagnostics});
+  const syncDiagnostics={...diagnostics,fulfillmentCounts,nextCursorPresent:incomplete};
+  if(diagnostics.rawOrders===0){
+   return NextResponse.json({orders:0,lines:0,feeSync:false,warning:'Walmart returned zero orders for the last 90 days. No records were imported. Check the date range and the response shape below.',diagnostics:syncDiagnostics});
+  }
+  if(rows.length===0)return NextResponse.json({orders:diagnostics.rawOrders,lines:0,feeSync:false,warning:'Walmart returned orders, but none produced importable lines. See diagnostics.',diagnostics:syncDiagnostics});
   const database=db();
   for(let i=0;i<rows.length;i+=200){const {error}=await database.from('walmart_sales').upsert(rows.slice(i,i+200),{onConflict:'owner_id,order_id,line_id'});if(error)throw Error(`Walmart database save failed: ${error.message}`);}
-  return NextResponse.json({orders:diagnostics.rawOrders,lines:rows.length,feeSync:false,diagnostics,note:'WFS settlement fees are not imported by this endpoint.'});
+  return NextResponse.json({orders:diagnostics.rawOrders,lines:rows.length,feeSync:false,diagnostics:syncDiagnostics,...(incomplete?{warning:'Reached the 15-page limit for a fulfillment type. More Walmart orders remain; the import is incomplete.'}:{}),note:'WFS settlement fees are not imported by this endpoint.'});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Walmart sync failed'},{status:502});}
 }

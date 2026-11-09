@@ -10,7 +10,7 @@ export function walmartOrderDate(value: unknown): string | null {
 
 // nextCursor may be a query string containing limit and an encoded cursor.
 // Keep requests pinned to Walmart, and decode query values exactly once.
-export function walmartOrdersUrl(since: string, cursor = ''): URL {
+export function walmartOrdersUrl(since: string, cursor = '', shipNodeType: 'SellerFulfilled' | 'WFSFulfilled' = 'SellerFulfilled'): URL {
   const url = new URL('https://marketplace.walmartapis.com/v3/orders');
   url.searchParams.set('limit', '200');
   if (!cursor) url.searchParams.set('createdStartDate', since);
@@ -19,5 +19,6 @@ export function walmartOrdersUrl(since: string, cursor = ''): URL {
     if (!params.get('nextCursor')) throw Error('Walmart pagination response is missing nextCursor.');
     for (const [key, value] of params) url.searchParams.set(key, value);
   } else url.searchParams.set('nextCursor', cursor);
+  url.searchParams.set('shipNodeType', shipNodeType);
   return url;
 }
