@@ -63,7 +63,7 @@ begin
   key=item->>'sku';
   if key is null or key='' then raise exception 'Missing WFS SKU';end if;
   select data into previous from public.walmart_wfs_inventory where owner_id=p_owner and sku=key;
-  if previous is distinct from item then
+  if previous is null or (previous-'price_seen_at'-'price_error') is distinct from (item-'price_seen_at'-'price_error') then
    insert into public.walmart_wfs_changes(owner_id,sku,before_data,after_data) values(p_owner,key,previous,item);
   end if;
   insert into public.walmart_wfs_inventory(owner_id,sku,data,last_seen_at,stale) values(p_owner,key,item,now(),false)
@@ -76,3 +76,17 @@ end $$;
 revoke all on function public.claim_walmart_wfs_sync(uuid) from public,anon,authenticated;
 revoke all on function public.replace_walmart_wfs_inventory(uuid,jsonb,uuid) from public,anon,authenticated;
 grant execute on function public.claim_walmart_wfs_sync(uuid),public.replace_walmart_wfs_inventory(uuid,jsonb,uuid) to service_role;
+
+-- Conservative planning assumptions. Estimates are computed at display time;
+-- they are never inserted into the actual settlement ledger.
+create table if not exists public.walmart_fee_assumptions (
+ owner_id uuid not null references auth.users(id) on delete cascade,
+ sku text not null,
+ data jsonb not null,
+ primary key(owner_id,sku)
+);
+alter table public.walmart_fee_assumptions enable row level security;
+drop policy if exists walmart_fee_assumptions_read on public.walmart_fee_assumptions;
+create policy walmart_fee_assumptions_read on public.walmart_fee_assumptions for select to authenticated using(auth.uid()=owner_id);
+grant select on public.walmart_fee_assumptions to authenticated;
+grant all on public.walmart_fee_assumptions to service_role;
