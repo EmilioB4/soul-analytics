@@ -40,3 +40,11 @@ test('ambiguous multi-day or excessive tracked quantities require reconciliation
  assert.throws(()=>parseWalmartReturns(raw({refundedQty:undefined,quantity:{measurementValue:2},currentTrackingStatuses:statuses})),/multiple event dates/);
  assert.throws(()=>parseWalmartReturns(raw({refundedQty:undefined,quantity:{measurementValue:1},currentTrackingStatuses:statuses})),/exceed/);
 });
+
+test('daily and seven-day presets use New York calendar dates across DST',()=>{
+ const now=new Date('2026-11-09T02:00:00Z');
+ assert.deepEqual(walmartDateRange('today','','',now),{start:'2026-11-08',end:'2026-11-08',label:'Today · 2026-11-08'});
+ assert.deepEqual(walmartDateRange('yesterday','','',now),{start:'2026-11-07',end:'2026-11-07',label:'Yesterday · 2026-11-07'});
+ assert.deepEqual(walmartDateRange('7','','',new Date('2026-11-09T17:00:00Z')),{start:'2026-11-02',end:'2026-11-08',label:'2026-11-02 – 2026-11-08'});
+ assert.equal(walmartDateRange('7','','',new Date('2026-01-03T17:00:00Z')).start,'2025-12-27');
+});
