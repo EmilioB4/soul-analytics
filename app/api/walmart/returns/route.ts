@@ -1,0 +1,6 @@
+import {NextRequest,NextResponse} from 'next/server';
+import {owner,db} from '../../../../lib/tiktok';
+import {walmartAccessToken,walmartReport} from '../../../../lib/walmart-api';
+import {downloadWalmartReturns} from '../../../../lib/walmart-returns';
+export const runtime='nodejs';export const maxDuration=60;
+export async function GET(req:NextRequest){try{const user=await owner(req.headers.get('authorization'));if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});const start=req.nextUrl.searchParams.get('start')||new Date(Date.now()-120*86400000).toISOString().slice(0,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(start)||!Number.isFinite(Date.parse(start)))return NextResponse.json({error:'Invalid return start date.'},{status:400});const token=await walmartAccessToken();const rows=await downloadWalmartReturns(path=>walmartReport(path,token,'customer returns'),start);const {data,error}=await db().from('walmart_return_recoveries').select('return_id,return_line_id,quantity,unit_cost').eq('owner_id',user.id).limit(10000);return NextResponse.json({rows,recoveries:error?[]:data||[],recoverySetupRequired:Boolean(error),source:'Walmart Returns API'});}catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Returns unavailable; do not assume zero refunds.'},{status:502});}}

@@ -1,55 +1,44 @@
-# Conservative pending-fee reserves
+# Expected fees, refunds and a separate safety cushion
 
-Walmart Overview now deducts recorded fees **and** labeled estimates for missing fee components before settlement. Estimates are computed when displaying data; they are never inserted into the actual fee ledger. As actual charges arrive, the matching component/covered units stop receiving an estimate. No manual reversal or duplicate estimated ledger entries are needed.
+The previous blanket reserve model was a downside budget, not a reliable estimate of expected Walmart charges. It has been replaced. No Sellerboard totals are copied into financial data or used to force a match.
 
-## Planning defaults
+## Expected fees
 
-- Referral: 20% of order merchandise revenue.
-- WFS fulfillment: $8/unit.
-- Prep: $2/unit.
-- Inbound: $1/unit.
-- Storage: $1/unit.
-- Extra cushion: 20% on the four per-unit costs.
+1. Use a per-SKU override when explicitly configured.
+2. Otherwise use the median observed matched charge for that SKU and fulfillment method. Aggregate fee components per order line; do not use the historical maximum or force learned rates up to a blanket percentage. Ambiguous bulk charges with no reported quantity are excluded from rate calibration.
+3. If no history exists, label the fallback: 15% referral and $5.75 WFS fulfillment per unit. This is an uncalibrated standard-tier fallback, not a SKU quote or universal tariff. Actual discounts, category rates, shipping weight, dimensions and surcharges can differ; review SKU settings for unsupported products.
+4. Prep, inbound and storage are **not** added automatically to every sale. They require matched per-unit history or an explicit SKU setting. Account-level actual charges are included when posted, not guessed as a per-sale tax.
 
-For a $100, one-unit WFS sale, the initial reserve is $34.40. These are deliberately padded assumptions, **not official Walmart tariff rates, quotes, or guaranteed maximums**. Fulfillment depends on shipping weight, dimensions and surcharges; prep/storage/inbound depend on actual services and time. Large/oversize and long-stored items need reviewed SKU overrides. Seller-fulfilled sales receive a referral reserve only; postage and other outside charges are separate.
+The optional cushion is a separate planning metric. It does not reduce expected net profit, margin or ROI. A separate downside-profit figure shows its effect. The exact, unedited legacy preset is normalized to the new defaults on read; intentionally different custom overrides are preserved.
 
-Default flat costs are not inferred from retail prices. Higher positive observed fee rates for the same SKU/fulfillment method can raise order-reserve floors; the cushion applies to observed unit rates as well. A zero configured component disables that planning reserve when the charge genuinely does not apply. It never hides an actual posted charge.
+Posted actuals replace corresponding estimates and covered units. A referral fee does not complete fulfillment. Credits/taxes do not falsely complete the original base fee. Shared/ambiguous actuals offset matching expected categories dollar-for-dollar without inventing an actual per-order allocation. All estimates are computed for display and never written to the actual fee ledger.
 
-## Replacement and matching
+## Dates and reporting basis
 
-- Components are referral, fulfillment, prep, inbound and storage. A referral fee does not mark fulfillment/prep/storage as settled.
-- Exact purchase-order/line/SKU matching covers the units reported by the fee row's Ship Qty/Quantity. With no valid reported quantity, a fee covers at most one unit. Multiple rows of the same category use maximum reported coverage rather than adding potentially overlapping quantities.
-- Missing quantities, partial shipments and ambiguous multi-product orders can therefore retain extra reserves conservatively. Review source reports and SKU assumptions when coverage remains uncertain.
-- Credits lower recorded costs but do not independently mark the original fee as posted. Fee taxes/return-processing costs count as actuals without falsely clearing a base fee reserve.
-- Shared or ambiguous actual fees remain unallocated actual costs. Their positive amounts reduce matching category reserves dollar-for-dollar, proportionally across eligible planning entries, to avoid counting the same cost twice. This does not invent an actual per-order allocation.
-- Estimates use the same selected sale-date and fulfillment filters as order profit. Account-level actual costs retain the existing posting-date/All-view rules.
-- Unknown settlement transactions still suppress profit until classified. Missing COGS or inaccessible actual-fee data also keep profit unavailable. No settlement report is required when the actual-fee tables are readable and no charges have posted yet.
-- Advertising, outside seller postage, unusual/unrecognized fees and external prep/freight still need their actual costs imported. Existing manual fees must not duplicate automatically imported charges. Returned inventory does not automatically reverse COGS.
+Last 30/90 days end on the last completed **America/New_York** day. Custom start/end dates and year-to-date are available. The exact bounds, imported gross units, refunded units and order count are shown. Selected dates are sent to order sync, with New York/DST-aware boundaries; date-only CSV values are preserved.
 
-## Example
+Sales use original order dates. Refunds use refund event dates; fallback dates derived from return status/creation are visibly flagged. Original-order fees retain their existing sale-date attribution, while shared account charges use posting dates. Sellerboard may have different timing options; compare equal date ranges and accounting bases.
 
-With $100 revenue and $30 COGS:
+Year-to-date and All include imported orders only. A date selector does not create missing historical records. Walmart retention, pagination, canceled-order handling, buyer shipping, original unit costs and return timing can all explain differences and should be reconciled rather than overwritten.
 
-| Data received | Actual fees | Remaining reserve | Estimated profit |
-| --- | ---: | ---: | ---: |
-| No settlement yet | $0 | $34.40 | $35.60 |
-| Referral charge of $15 arrives | $15 | $14.40 | $40.60 |
-| Referral $15, fulfillment $5, prep $1, inbound $1, storage $0.50 arrive | $22.50 | $0 | $47.50 |
+## Refunds before settlement
 
-The lower actual costs replace estimates instead of being added on top of them.
+The signed-in owner reads confirmed refunded lines from Walmart's `/v3/returns` API. No payment settlement is required. Product/shipping charges are calculated separately from sales tax; pending requests and replacements are not blindly counted as refunds. Pagination must complete, or data is withheld rather than silently treating refunds as zero. Returns API access is required on the existing Walmart API key.
 
-## Settings and setup
+When a matching settlement refund arrives, only the still-uncovered Returns API amount is added. Refunds are not deducted twice. Unknown/unmatched/malformed data is not treated as proof of a zero refund. Expected profit is withheld if refund access fails.
 
-Expand **Fee estimates & conservative assumptions** in Walmart Overview or the WFS tab. Save global defaults or a SKU override. These settings are private to the owner and shared across devices after saving.
+## Returned goods and COGS
 
-Run the updated `supabase/walmart_wfs_inventory.sql` to create `walmart_fee_assumptions` along with the WFS tables. The script is rerunnable. Defaults work if saved-assumption setup is missing, with a visible default-reserve label; saving custom rules requires setup. Existing actual-fee, sales and COGS tables are preserved.
+A refund does not prove that goods were returned in a recoverable condition. In the Refunds section, confirm the actual recoverable quantity and its **original sold unit cost**. The financial credit is capped at confirmed refunded units; keep-it/no-goods-expected returns cannot restore cost. Confirmations apply to the refund event period. They do not add inventory units or overwrite original sale/fee/cost records.
 
-The WFS listing-profit preview uses configured base planning assumptions and saved/linked purchase-lot costs. Order-level profit additionally applies higher observed fee floors where history can be matched.
+Run `supabase/walmart_return_recoveries.sql` once to save these confirmations. Refund lookup itself works without this new table, but no recovery is invented when it is missing. The owner can change or clear a confirmation with zero units. Access is owner-protected; writes derive owner from the authenticated session.
 
-Sources reviewed for context, not represented as the configured quote:
-- https://marketplace.walmart.com/walmart-fulfillment-services-pricing
-- https://developer.walmart.com/us-marketplace/reference/getavailablev1reconreportasjson-1
+The P&L table separates merchandise subtotal, refunds, net GMV, shipping/WFS fulfillment, other fees, original COGS, returned-cost credits, net COGS and expected profit. Saved SKU unit costs currently apply to historical sales; if another report uses batch/FIFO or per-order costs, original COGS must be reconciled separately. Never assume identical sales subtotals imply identical COGS.
 
-## Validation
+Advertising, external freight/postage, unusual charges and unrecognized settlement transactions still need their own source data. Posted refund commission credits are included when present; anticipated refund fee credits are not invented. Missing COGS, unavailable actual fee data or unknown settlement transactions still prevent a complete profit figure.
 
-Tests cover pre-settlement reserves, component replacement, partial quantities, credits, fee taxes, shared-charge offsets, ambiguous lines, observed-history floors, SKU overrides and authenticated settings writes. Chromium verified the real overview changing from $34.40 estimated fees to $15 referral plus $14.40 pending reserves, then $22.50 actual/$0 estimated as all sample components arrived. The WFS browser check verified the in-stock-only view, listing price/value, missing-price labels, restock suggestions, settings save and mobile panel containment. Live seller prices and fee totals still need comparison with Walmart after deployment.
+## Verification
+
+Tests cover typical-rate calibration, legacy migration, separate cushion, partial fee coverage, refund/settlement deduplication, confirmed-cost bounds, tax exclusion, partial/pending returns, date presets/custom ranges and DST boundaries. Public tests use synthetic figures; private comparison screenshots/financial totals are not committed.
+
+After deployment, select the exact reference dates, refresh orders/fees/refunds, inspect fee sources, and confirm recoverable returned goods. Compare the P&L lines against the reference report. Production Walmart responses, historical cost choices and return timestamps still need live verification.

@@ -38,8 +38,8 @@ export function parseWalmartTransaction(raw:Record<string,unknown>,date:string,i
 export function settlementFees(rows:WalmartTransaction[]):WalmartFee[]{
  return rows.filter(r=>r.kind==='fee').map(r=>({order_id:r.order_id,line_id:r.line_id,sku:r.sku,fee_date:r.posted_date,fee_type:r.fee_type,amount:-r.amount,quantity:Number(r.raw?.['Ship Qty']??r.raw?.['Quantity'])||null}));
 }
-export function allocateWalmartFees(sales:WalmartSale[],fees:WalmartFee[],cutoff='',filter='All'){
- const selected=sales.filter(s=>(!cutoff||s.order_date>=cutoff)&&(filter==='All'||s.fulfillment===filter));
+export function allocateWalmartFees(sales:WalmartSale[],fees:WalmartFee[],cutoff='',filter='All',end='9999-12-31'){
+ const selected=sales.filter(s=>(!cutoff||s.order_date>=cutoff)&&s.order_date<=end&&(filter==='All'||s.fulfillment===filter));
  const orderLines=new Map<string,WalmartSale[]>();
  for(const sale of sales){const lines=orderLines.get(sale.order_id)||[];lines.push(sale);orderLines.set(sale.order_id,lines);}
  const byGroup=new Map<string,number>();const byOrder=new Map<string,number>();
@@ -47,12 +47,12 @@ export function allocateWalmartFees(sales:WalmartSale[],fees:WalmartFee[],cutoff
  const included:WalmartFee[]=[];
  for(const fee of fees){
   const matches=fee.order_id?(orderLines.get(fee.order_id)||[]).filter(s=>(!fee.line_id||s.line_id===fee.line_id)&&(!fee.sku||s.sku===fee.sku)):[];
-  const eligible=matches.filter(s=>(!cutoff||s.order_date>=cutoff)&&(filter==='All'||s.fulfillment===filter));
+  const eligible=matches.filter(s=>(!cutoff||s.order_date>=cutoff)&&s.order_date<=end&&(filter==='All'||s.fulfillment===filter));
   // Match order fees by the sale date, even if settlement was posted later.
   // Unmatched account charges use their posting date and stay unallocated.
   if(matches.length&&!eligible.length)continue;
   if(!matches.length){
-   if(cutoff&&fee.fee_date<cutoff)continue;
+   if((cutoff&&fee.fee_date<cutoff)||fee.fee_date>end)continue;
    if(filter!=='All'){excludedShared+=Number(fee.amount);continue;}
   }
   total+=Number(fee.amount);included.push(fee);

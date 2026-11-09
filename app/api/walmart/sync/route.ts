@@ -1,5 +1,6 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {owner,db} from '../../../../lib/tiktok';
+import {newYorkMidnight} from '../../../../lib/walmart-period';
 import {walmartOrderDate,walmartOrdersUrl} from '../../../../lib/walmart';
 export const runtime='nodejs';
 export const maxDuration=60;
@@ -20,8 +21,11 @@ export async function POST(req:NextRequest){
   if(!tokenRes.ok)return NextResponse.json({error:`Walmart authentication HTTP ${tokenRes.status}: ${errorText(tokenBody)}`},{status:502});
   const token=str(obj(tokenBody).access_token||obj(obj(obj(tokenBody).clientCredentialsRes).value).access_token);
   if(!token)return NextResponse.json({error:`Walmart authentication returned no access token. Response fields: ${Object.keys(obj(tokenBody)).join(', ')}`},{status:502});
-  const since=new Date(Date.now()-89*86400000).toISOString();
-  const diagnostics:{dateRange:string;pages:number;responseShapes:string[];rawOrders:number;skippedOrders:number;skippedLines:number;nextCursorPresent:boolean}={dateRange:`${since} to now (last 90 days)`,pages:0,responseShapes:[],rawOrders:0,skippedOrders:0,skippedLines:0,nextCursorPresent:false};
+  const input=await req.json().catch(()=>({}));const validDate=(x:unknown)=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x))&&new Date(x).toISOString().slice(0,10)===x;
+  if((input.startDate&&!validDate(input.startDate))||(input.endDate&&!validDate(input.endDate))||(input.startDate&&input.endDate&&input.startDate>input.endDate))return NextResponse.json({error:'Invalid sync date range.'},{status:400});
+  const since=input.startDate?newYorkMidnight(input.startDate):new Date(Date.now()-89*86400000).toISOString();
+  const dayAfter=input.endDate?new Date(Date.parse(input.endDate)+86400000).toISOString().slice(0,10):null;const until=dayAfter?new Date(Date.parse(newYorkMidnight(dayAfter))-1).toISOString():null;
+  const diagnostics:{dateRange:string;pages:number;responseShapes:string[];rawOrders:number;skippedOrders:number;skippedLines:number;nextCursorPresent:boolean}={dateRange:`${since} to ${until||'now'}`,pages:0,responseShapes:[],rawOrders:0,skippedOrders:0,skippedLines:0,nextCursorPresent:false};
   const rows:Obj[]=[];
   const fulfillmentCounts:Record<string,number>={};
   let incomplete=false;
@@ -29,7 +33,7 @@ export async function POST(req:NextRequest){
   let cursor='';
   fulfillmentCounts[shipNodeType]=0;
   for(let page=0;page<15;page++){
-   const url=walmartOrdersUrl(since,cursor,shipNodeType);
+   const url=walmartOrdersUrl(since,cursor,shipNodeType);if(!cursor&&until)url.searchParams.set('createdEndDate',until);
    const res=await fetch(url.toString(),{headers:{'WM_SEC.ACCESS_TOKEN':token,'WM_SVC.NAME':'Walmart Marketplace','WM_QOS.CORRELATION_ID':crypto.randomUUID(),Accept:'application/json'},cache:'no-store'});
    const body:unknown=await res.json().catch(async()=>({raw:(await res.text().catch(()=>'' )).slice(0,400)}));
    if(!res.ok)return NextResponse.json({error:`Walmart orders HTTP ${res.status}: ${errorText(body)}`,diagnostics},{status:502});
@@ -68,7 +72,7 @@ export async function POST(req:NextRequest){
   }
   const syncDiagnostics={...diagnostics,fulfillmentCounts,nextCursorPresent:incomplete};
   if(diagnostics.rawOrders===0){
-   return NextResponse.json({orders:0,lines:0,feeSync:false,warning:'Walmart returned zero orders for the last 90 days. No records were imported. Check the date range and the response shape below.',diagnostics:syncDiagnostics});
+   return NextResponse.json({orders:0,lines:0,feeSync:false,warning:'Walmart returned zero orders for the requested sync range. No records were imported. Check the date range and the response shape below.',diagnostics:syncDiagnostics});
   }
   if(rows.length===0)return NextResponse.json({orders:diagnostics.rawOrders,lines:0,feeSync:false,warning:'Walmart returned orders, but none produced importable lines. See diagnostics.',diagnostics:syncDiagnostics});
   const database=db();
