@@ -2,6 +2,7 @@
 import TikTokLiveEfficiency from './TikTokLiveEfficiency';
 import {useCallback,useEffect,useState} from 'react';
 import {supabase} from './supabase';
+import PayoutNotifications from './PayoutNotifications';
 import WhatnotDashboard from './WhatnotDashboard';
 import WalmartDashboard from './WalmartDashboard';
 import WalmartInventory from './WalmartInventory';
@@ -248,6 +249,7 @@ export default function Home(){
    </section>
    <section className="surface" style={{padding:'22px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:15,flexWrap:'wrap'}}><div><div className="eyebrow">PRODUCT MANAGEMENT</div><h2 style={{margin:'6px 0'}}>Need to change a product cost?</h2><p className="muted" style={{margin:0}}>Edit SKU COGS, purchase batches, and individual orders in Products &amp; COGS.</p></div><button className="outlineBtn" onClick={()=>setTab('products')}>Open Products &amp; COGS →</button></section>
   </>}
+ {tab==='settings'&&<PayoutNotifications/>}
  {tab==='settings'&&<section className="surface settingsPanel"><div className="surfaceHeader"><div><div className="eyebrow">CONNECTED SERVICES</div><h2>TikTok Shop</h2><p className="muted">Secure OAuth connection for your seller account</p></div><span className={`connectBadge ${tiktokConnected?'connected':''}`}>{tiktokConnected?'● Authorized':'Not authorized'}</span></div><div className="settingsActions"><button className="primaryBtn" onClick={connectTiktok} disabled={tiktokBusy}>{tiktokBusy?'Opening TikTok…':tiktokConnected?'Reauthorize TikTok Shop':'Connect TikTok Shop'}</button><button className="outlineBtn" onClick={syncOrders} disabled={syncBusy||!tiktokConnected}>{syncBusy?'Syncing…':'Sync last 30 days of orders'}</button></div>{tiktokMessage&&<div className="alertBox">{tiktokMessage}</div>}{syncMessage&&<div className="alertBox">{syncMessage}</div>}<div className="settingsMeta"><div><span>Authorization</span><strong>{tiktokConnected?'Connected':'Not connected'}</strong></div><div><span>Latest imported order sync</span><strong>{analytics?.lastSync?new Date(analytics.lastSync).toLocaleString():'Not available'}</strong></div><div><span>Automatic background sync</span><strong>Not configured yet</strong></div></div></section>}
  <div className="disclaimer">SOUL ANALYTICS <span>·</span> TikTok Shop product sales subtotal is not GMV or payout. Estimated contribution profit uses a flat 6% fee, saved COGS and available net settled shipping costs. Orders with missing shipping are flagged as partial. Reporting reflects imported records, not necessarily all TikTok transactions.</div>
  </div></div></div>;
