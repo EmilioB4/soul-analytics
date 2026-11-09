@@ -32,8 +32,8 @@ function brandedMessage<T extends Record<string,unknown>>(embed:T,options:Messag
 }
 export function payoutMessage(event:PayoutEvent,options:MessageOptions={}){
  const platform=event.platform==='tiktok'?'TikTok Shop':'Walmart';
- const status=event.stage==='paid'?'Sent':event.stage==='processing'?'Processing':'Scheduled';
- const note=event.stage==='paid'?'Reported sent by the platform. Bank arrival may take longer.':event.stage==='processing'?'Your payment is being processed.':'Expected settlement; amount and timing may change.';
+ const status=event.stage==='paid'?'Sent':event.stage==='processing'?'Payout initiated':'Scheduled';
+ const note=event.stage==='paid'?'Reported sent by the platform. Bank arrival may take longer.':event.stage==='processing'?'TikTok has initiated this payout and is processing the transfer.':'Expected settlement; amount and timing may change.';
  return brandedMessage({title:new Intl.NumberFormat('en-US',{style:'currency',currency:event.currency}).format(event.amount),description:`**${platform}**\n${note}`,color:event.stage==='scheduled'?0xc39bff:0x7be9ef,fields:[{name:'Status',value:status,inline:true},{name:event.platform==='walmart'?'Settlement date':'Payment date',value:event.date,inline:true}]},options);
 }
 export function payoutTestMessage(options:MessageOptions={}){

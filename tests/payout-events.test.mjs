@@ -23,7 +23,7 @@ test('webhook destinations are strictly pinned to Discord and mentions are disab
 
 test('branded payout embeds are concise and distinguish scheduled, processing and sent',()=>{
  const options={siteUrl:'https://soul.example.com',observedAt:'2026-11-09T12:00:00Z'};
- for(const [stage,status,color] of [['scheduled','Scheduled',0xc39bff],['processing','Processing',0x7be9ef],['paid','Sent',0x7be9ef]]){
+ for(const [stage,status,color] of [['scheduled','Scheduled',0xc39bff],['processing','Payout initiated',0x7be9ef],['paid','Sent',0x7be9ef]]){
   const message=payoutMessage({platform:'tiktok',id:'p',stage,amount:250,currency:'USD',date:'2026-11-09',description:'source text'},options);
   assert.equal(message.username,'SOUL');assert.equal(message.avatar_url,'https://soul.example.com/soul-iridescent-logo.jpg');
   const embed=message.embeds[0];assert.equal(embed.title,'$250.00');assert.equal(embed.fields[0].value,status);assert.equal(embed.color,color);assert.equal(embed.fields.length,2);assert.equal(embed.timestamp,options.observedAt);assert.ok(embed.description.length<160);assert.doesNotMatch(embed.description,/available to withdraw/i);

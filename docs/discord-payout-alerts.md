@@ -37,3 +37,6 @@ The alert amount, platform, status and date use a compact branded embed; test me
 Scheduler setup is not proof that HTTP calls are succeeding. Check Last check and errors in Integrations, and job/request history in Supabase Cron/pg_net, especially if deployment protection blocks background requests. For multiple enabled owners the existing scheduler processes one owner per run; each owner's interval increases accordingly.
 
 References: [Supabase scheduled HTTP calls and Vault](https://supabase.com/docs/guides/functions/schedule-functions), [Vercel cron frequency limits](https://vercel.com/docs/schedules/cron-jobs/usage-and-pricing).
+
+
+TikTok's PROCESSING event is presented as **Payout initiated**, followed by a separate **Sent** alert if the payment becomes PAID. Internal status keys stay unchanged, so updating the message label does not replay already recorded events. A payment already PAID when first observed does not fabricate an earlier initiation event. Walmart's statement exposes scheduled and reported-sent values, not a separate reliable initiation signal.
