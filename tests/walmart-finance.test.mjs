@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {feeReserves,feeComponent} from '../lib/walmart-fee-reserves.ts';
 import {parseWalmartTransaction,settlementFees,allocateWalmartFees,reportDate} from '../lib/walmart-finance.ts';
 const raw=(type,amount,extra={})=>({'Transaction Key':'tx-1','Transaction Type':'Sale','Amount Type':type,Amount:amount,'Transaction Posted Timestamp':'11/08/2026','Purchase Order #':'PO1','Purchase Order line #':'1','Partner Item Id':'SKU1',...extra});
 const parse=(r)=>parseWalmartTransaction(r,'11/09/2026',0);
@@ -52,4 +53,23 @@ test('a line-specific fee can be attributed without a SKU',()=>{
 });
 test('US report dates parse predictably',()=>{
  assert.equal(reportDate('11/09/2026'),'2026-11-09');assert.equal(reportDate('2026-11-09'),'2026-11-09');assert.equal(reportDate('garbage'),null);assert.equal(reportDate('02/30/2026'),null);assert.equal(reportDate('20261109'),'2026-11-09');assert.equal(reportDate('11092026'),'2026-11-09');
+});
+
+test('generic fee amount labels retain the description needed to replace fulfillment estimates',()=>{
+ const transaction=parse(raw('Fee','-6.25',{'Transaction Description':'WFS Fulfillment Fee'}));
+ const actual=settlementFees([transaction]);
+ assert.equal(feeComponent(actual[0].fee_type),'fulfillment');
+ const sold=[{...sales[0],quantity:1,revenue:40}];
+ const reserve=feeReserves(sold,actual);
+ assert.equal(reserve.components.find(x=>x.category==='fulfillment').amount,0);
+ assert.equal(actual[0].amount,6.25);
+ assert.equal(reserve.components.find(x=>x.category==='referral').amount,6);
+});
+test('previously saved generic fee labels recover classification from raw fields without resync',()=>{
+ const transaction={...parse(raw('Fee','-2',{'Transaction Description':'WFS Prep Fee'})),fee_type:'Fee'};
+ const actual=settlementFees([transaction]);
+ assert.equal(feeComponent(actual[0].fee_type),'prep');
+ assert.equal(actual[0].amount,2);
+ const credit=settlementFees([{...transaction,amount:1}]);
+ assert.equal(credit[0].amount,-1);
 });
