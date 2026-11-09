@@ -1,14 +1,17 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {walmartPayoutOwnerMatches} from '../../../../lib/payout-ownership';
 import {owner,db,encrypt} from '../../../../lib/tiktok';
-import {discordWebhookUrl} from '../../../../lib/payout-events';
+import {decrypt} from '../../../../lib/tiktok-orders';
+import {discordWebhookUrl,maskedDiscordWebhook} from '../../../../lib/payout-events';
 export const runtime='nodejs';
 export async function GET(req:NextRequest){try{
  const user=await owner(req.headers.get('authorization'));if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
- const {data,error}=await db().from('payout_alert_settings').select('enabled,tiktok_enabled,walmart_enabled,last_checked_at,last_error').eq('owner_id',user.id).maybeSingle();if(error)throw Error('Run supabase/payout_notifications.sql in Supabase SQL Editor.');
+ const {data,error}=await db().from('payout_alert_settings').select('enabled,tiktok_enabled,walmart_enabled,last_checked_at,last_error,webhook_encrypted').eq('owner_id',user.id).maybeSingle();if(error)throw Error('Run supabase/payout_notifications.sql in Supabase SQL Editor.');
  const recent=await db().from('payout_alert_events').select('platform,stage,state,amount,event_date,updated_at').eq('owner_id',user.id).order('updated_at',{ascending:false}).limit(10);if(recent.error)throw Error('Could not load notification history.');
  let fastChecks=false;try{const schedule=await db().rpc('payout_alert_schedule_status');fastChecks=!schedule.error&&schedule.data===true;}catch{}
- return NextResponse.json({userId:user.id,configured:Boolean(data),settings:data,history:recent.data||[],fastChecks,walmartOwnerConfigured:await walmartPayoutOwnerMatches(user.id),cadence:fastChecks?'Every minute through Supabase':'Daily background checks; one-minute scheduler not enabled',whatnot:'Unsupported: the documented integration does not expose a withdrawable balance or payout-status endpoint.'});
+ let webhookDisplay='';if(data?.webhook_encrypted){try{webhookDisplay=maskedDiscordWebhook(decrypt(data.webhook_encrypted));}catch{webhookDisplay='Saved Discord webhook · token hidden';}}
+ const settings=data?{enabled:data.enabled,tiktok_enabled:data.tiktok_enabled,walmart_enabled:data.walmart_enabled,last_checked_at:data.last_checked_at,last_error:data.last_error}:null;
+ return NextResponse.json({userId:user.id,configured:Boolean(data),webhookDisplay,settings,history:recent.data||[],fastChecks,walmartOwnerConfigured:await walmartPayoutOwnerMatches(user.id),cadence:fastChecks?'Every minute through Supabase':'Daily background checks; one-minute scheduler not enabled',whatnot:'Unsupported: the documented integration does not expose a withdrawable balance or payout-status endpoint.'});
 }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Settings unavailable'},{status:503});}}
 export async function POST(req:NextRequest){try{
  const user=await owner(req.headers.get('authorization'));if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});

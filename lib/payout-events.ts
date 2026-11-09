@@ -39,3 +39,8 @@ export function payoutMessage(event:PayoutEvent,options:MessageOptions={}){
 export function payoutTestMessage(options:MessageOptions={}){
  return brandedMessage({title:'You’re connected',description:'Payout updates will arrive here.\nThis is a test notification.',color:0x7be9ef},options);
 }
+
+export function maskedDiscordWebhook(value:string){
+ const url=discordWebhookUrl(value);
+ return url.slice(0,url.lastIndexOf('/')+1)+'••••••••';
+}
