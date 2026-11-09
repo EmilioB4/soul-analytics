@@ -10,7 +10,7 @@ function setup({status=200,networkError=false}={}){
    if(operation==='insert'||operation==='upsert'){for(const value of Array.isArray(values)?values:[values]){const duplicate=table==='payout_alert_events'&&rows[table].some(r=>['owner_id','platform','event_id','stage'].every(k=>r[k]===value[k]));if(duplicate){if(ignore)continue;return {error:{message:'duplicate'}};}rows[table].push({...value});}return {data:null,error:null};}
    return {data:single?matched[0]||null:matched,error:null};
   }).then(ok,bad)};return q;}};
- const mocks={'./tiktok':{db:()=>client},'./tiktok-orders':{decrypt:()=> 'https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyz_123'},'./payout-sources':{collectPayouts:async()=>{if(source instanceof Error)throw source;return source;}},'./payout-events':events};const exports={};
+ const mocks={'./payout-brand':{payoutSiteUrl:()=>null},'./tiktok':{db:()=>client},'./tiktok-orders':{decrypt:()=> 'https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyz_123'},'./payout-sources':{collectPayouts:async()=>{if(source instanceof Error)throw source;return source;}},'./payout-events':events};const exports={};
  const code=ts.transpileModule(fs.readFileSync(new URL('../lib/payout-alerts.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021}}).outputText;
  vm.runInNewContext(code,{exports,require:id=>mocks[id],crypto:{randomUUID:()=> 'lease'},URL,Date,Map,Set,Error,AbortSignal,fetch:async()=>{fetches++;if(networkError)throw Error('network contains secret');return {status,ok:status===200,json:async()=>({id:'discord-msg',retry_after:30})};}});
  return {rows,run:()=>exports.checkPayoutAlerts('u1'),source:v=>{source=v;},fetches:()=>fetches};

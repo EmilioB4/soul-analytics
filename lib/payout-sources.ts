@@ -1,10 +1,11 @@
+import {walmartPayoutOwnerMatches} from './payout-ownership';
 import {db} from './tiktok';
 import {accessToken,tikTokCall} from './tiktok-orders';
 import {walmartAccessToken,walmartReport} from './walmart-api';
 import {tiktokPayoutEvents,walmartPayoutEvents} from './payout-events';
 export async function collectPayouts(ownerId:string,platform:'tiktok'|'walmart'){
  if(platform==='walmart'){
-  if(process.env.WALMART_OWNER_ID!==ownerId)throw Error('Set WALMART_OWNER_ID to the owner of the connected Walmart account.');
+  if(!await walmartPayoutOwnerMatches(ownerId))throw Error('Set WALMART_OWNER_ID to the owner of the connected Walmart account.');
   return walmartPayoutEvents(await walmartReport('/v3/report/payment/statement',await walmartAccessToken(),'payment statements'));
  }
  const {data,error}=await db().from('tiktok_connections').select('*').eq('owner_id',ownerId).maybeSingle();if(error||!data)throw Error('Connect TikTok Shop before checking payouts.');

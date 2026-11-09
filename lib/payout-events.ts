@@ -25,7 +25,17 @@ export function discordWebhookUrl(value:string){
  if(u.protocol!=='https:'||u.hostname!=='discord.com'||u.port||u.username||u.password||u.search||u.hash||!/^\/api(?:\/v\d+)?\/webhooks\/\d{10,25}\/[A-Za-z0-9_-]{20,200}$/.test(u.pathname))throw Error('Use an HTTPS discord.com/api/webhooks URL without query parameters.');
  return u.toString();
 }
-export function payoutMessage(event:PayoutEvent){
+type MessageOptions={siteUrl?:string|null;observedAt?:string};
+function brandedMessage<T extends Record<string,unknown>>(embed:T,options:MessageOptions={}){
+ const logo=options.siteUrl?`${options.siteUrl}/soul-iridescent-logo.jpg`:undefined;
+ return {username:'SOUL',...(logo?{avatar_url:logo}:{}),allowed_mentions:{parse:[]},embeds:[{author:{name:'SOUL / PAYOUTS',...(logo?{icon_url:logo}:{})},...embed,footer:{text:'Soul · Seller intelligence'},timestamp:options.observedAt||new Date().toISOString(),...(options.siteUrl?{url:options.siteUrl}:{})}]};
+}
+export function payoutMessage(event:PayoutEvent,options:MessageOptions={}){
  const platform=event.platform==='tiktok'?'TikTok Shop':'Walmart';
- return {username:'Soul payout alerts',allowed_mentions:{parse:[]},embeds:[{title:`${platform} · ${event.stage==='paid'?'Payout reported sent':event.stage==='processing'?'Payout processing':'Payout scheduled'}`,description:event.description,color:event.stage==='paid'?0x70dfc9:0xb8a1ee,fields:[{name:'Amount',value:new Intl.NumberFormat('en-US',{style:'currency',currency:event.currency}).format(event.amount),inline:true},{name:'Date',value:event.date,inline:true}],footer:{text:'Soul · platform-reported payout status'}}]};
+ const status=event.stage==='paid'?'Sent':event.stage==='processing'?'Processing':'Scheduled';
+ const note=event.stage==='paid'?'Reported sent by the platform. Bank arrival may take longer.':event.stage==='processing'?'Your payment is being processed.':'Expected settlement; amount and timing may change.';
+ return brandedMessage({title:new Intl.NumberFormat('en-US',{style:'currency',currency:event.currency}).format(event.amount),description:`**${platform}**\n${note}`,color:event.stage==='scheduled'?0xc39bff:0x7be9ef,fields:[{name:'Status',value:status,inline:true},{name:event.platform==='walmart'?'Settlement date':'Payment date',value:event.date,inline:true}]},options);
+}
+export function payoutTestMessage(options:MessageOptions={}){
+ return brandedMessage({title:'You’re connected',description:'Payout updates will arrive here.\nThis is a test notification.',color:0x7be9ef},options);
 }
