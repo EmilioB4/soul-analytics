@@ -16,3 +16,27 @@ test('rolling dates exclude the unfinished New York day and support exact custom
 test('New York sync boundaries honor daylight saving offsets',()=>{assert.equal(newYorkMidnight('2026-10-10'),'2026-10-10T04:00:00.000Z');assert.equal(newYorkMidnight('2026-11-08'),'2026-11-08T05:00:00.000Z');});
 
 test('returns compatibility request uses documented unfiltered pagination',async()=>{const paths=[];await downloadWalmartReturns(async path=>{paths.push(path);return {meta:{totalCount:0,nextCursor:''},returnOrders:[]};},'2026-10-10');assert.equal(paths[0],'/v3/returns?limit=100');assert.ok(!paths[0].includes('Modified'));});
+
+test('later settlement does not deduct an API refund again in a separate date range',()=>{
+ const rows=parseWalmartReturns(raw());const ledger=[{kind:'refund',order_id:'PO1',line_id:'1',sku:'SKU1',posted_date:'2026-11-20',fee_type:'Product Price',amount:-50}];
+ assert.equal(walmartRefundAccounting(rows,ledger,[sale],[],'2026-11-01','2026-11-08').total,50);
+ assert.equal(walmartRefundAccounting(rows,ledger,[sale],[],'2026-11-09','2026-11-30').total,0);
+ assert.equal(walmartRefundAccounting(rows,ledger,[sale],[],'2026-11-01','2026-11-30').total,50);
+});
+test('unmatched settlement remainder and shipping refunds remain accounted for',()=>{
+ const rows=parseWalmartReturns(raw({charges:[{chargeCategory:'PRODUCT',chargePerUnit:{currencyAmount:50}},{chargeCategory:'SHIPPING',chargePerUnit:{currencyAmount:5}}]}));
+ const ledger=[{kind:'refund',order_id:'PO1',line_id:'1',sku:'SKU1',posted_date:'2026-11-20',fee_type:'Product Price',amount:-70},{kind:'refund',order_id:'PO1',line_id:'1',sku:'SKU1',posted_date:'2026-11-20',fee_type:'Shipping',amount:-5}];
+ const early=walmartRefundAccounting(rows,ledger,[sale],[],'2026-11-01','2026-11-08');
+ assert.equal(early.total,55);assert.equal(walmartRefundAccounting(rows,ledger,[sale],[],'2026-11-09','2026-11-30').total,20);
+});
+test('multi-unit return tracking counts only confirmed refunds when parent quantity is absent',()=>{
+ const result=parseWalmartReturns(raw({refundedQty:undefined,quantity:{measurementValue:3},currentRefundStatus:'REFUND_INITIATED',currentTrackingStatuses:[{currentRefundStatus:'REFUND_COMPLETED',quantity:{measurementValue:2},statusTime:'2026-11-03T12:00:00Z'},{currentRefundStatus:'REFUND_INITIATED',quantity:{measurementValue:1}}]}));
+ assert.equal(result[0].refunded_qty,2);assert.equal(result[0].refund_product,100);assert.equal(result[0].event_date,'2026-11-03');
+ assert.equal(parseWalmartReturns(raw({refundedQty:0,currentTrackingStatuses:[{currentRefundStatus:'REFUND_COMPLETED',quantity:{measurementValue:2}}]})).length,0);
+ assert.equal(parseWalmartReturns(raw({refundedQty:undefined,currentRefundStatus:'COMPLETED',quantity:{measurementValue:1}})).length,0);
+});
+test('ambiguous multi-day or excessive tracked quantities require reconciliation',()=>{
+ const statuses=[{currentRefundStatus:'REFUND_COMPLETED',quantity:{measurementValue:1},statusTime:'2026-11-02T12:00:00Z'},{currentRefundStatus:'REFUND_COMPLETED',quantity:{measurementValue:1},statusTime:'2026-11-03T12:00:00Z'}];
+ assert.throws(()=>parseWalmartReturns(raw({refundedQty:undefined,quantity:{measurementValue:2},currentTrackingStatuses:statuses})),/multiple event dates/);
+ assert.throws(()=>parseWalmartReturns(raw({refundedQty:undefined,quantity:{measurementValue:1},currentTrackingStatuses:statuses})),/exceed/);
+});
