@@ -31,3 +31,12 @@ test('opaque cursors are preserved and malformed pagination fails visibly', () =
   assert.equal(walmartOrdersUrl('unused', 'abc+def=').searchParams.get('nextCursor'), 'abc+def=');
   assert.throws(() => walmartOrdersUrl('unused', '?limit=200'), /missing nextCursor/);
 });
+
+
+test('explicit fulfillment filters include WFS on first and subsequent pages', () => {
+  assert.equal(walmartOrdersUrl('since').searchParams.get('shipNodeType'), 'SellerFulfilled');
+  for (const cursor of ['', '?limit=200&nextCursor=abc%2Bdef%3D']) {
+    const url = walmartOrdersUrl('since', cursor, 'WFSFulfilled');
+    assert.equal(url.searchParams.get('shipNodeType'), 'WFSFulfilled');
+  }
+});
