@@ -253,3 +253,23 @@ html[data-soul-theme=light] .wnIntMetric,html[data-soul-theme=light] .wnIntFoot{
 @media(max-width:760px){.ttIntLayout{grid-template-columns:1fr}.ttIntLibrary,.ttIntDetail{padding:17px}.ttIntShowList{max-height:320px}.ttIntEfficiencyGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){.ttIntMetrics{gap:8px}.ttIntMetric{padding:14px 12px}.ttIntMetric strong{font-size:18px}.ttIntNumbers{grid-template-columns:1fr 1fr}.ttIntDetailTop{flex-wrap:wrap}}
 html[data-soul-theme=light] .ttIntMetric,html[data-soul-theme=light] .ttIntFooter{background:#fff;border-color:#dfe5ed}html[data-soul-theme=light] .ttIntShow{color:#202b3b;border-color:#e0e5ee}html[data-soul-theme=light] .ttIntShow:hover,html[data-soul-theme=light] .ttIntShow.active{background:#f4f0ff;border-color:#bca9ef}html[data-soul-theme=light] .ttIntNumbers,html[data-soul-theme=light] .ttIntTabs{border-color:#e2e5ed}html[data-soul-theme=light] .ttIntEfficiency{background:#f8f5ff;border-color:#e4d9f4}html[data-soul-theme=light] .ttIntTabs button.active{color:#644cb1}html[data-soul-theme=light] .ttIntMetric span,html[data-soul-theme=light] .ttIntNumbers span{color:#64728a}html[data-soul-theme=light] .ttIntBadge{color:#13717d}
+
+/* Consistent native selects retain keyboard and mobile picker support. */
+select{appearance:none;-webkit-appearance:none;font:inherit;font-size:13px;font-weight:550;line-height:1.4;min-height:42px;padding:10px 38px 10px 14px;border:1px solid var(--border);border-radius:11px;color:var(--text);background-color:var(--panel2);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24' stroke='%239aa6bb' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;cursor:pointer;transition:border-color .15s,box-shadow .15s;max-width:100%;color-scheme:dark}
+select:hover{border-color:var(--accent)}
+select:focus-visible{outline:2px solid var(--accent);outline-offset:3px;box-shadow:0 0 0 4px #a5a2ff12}
+select:disabled{opacity:.5;cursor:not-allowed}
+select option{color:var(--text);background:var(--panel)}
+html[data-soul-theme=light] select{color-scheme:light}
+.walmartFilters{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-top:22px}
+.walmartFilters>label{display:flex;flex-direction:column;gap:8px;font-size:11px;letter-spacing:.04em;font-weight:600;color:var(--muted)}
+.walmartFilters select{min-width:155px;letter-spacing:normal}
+.walmartFilters>.outlineBtn{min-height:42px}
+.inventoryProduct{display:flex;align-items:center;gap:15px;min-width:260px;max-width:570px}
+.inventoryProductCopy{min-width:0}.inventoryProductCopy strong{line-height:1.5;display:block;font-size:13px}
+.inventoryProductCopy .muted{overflow-wrap:anywhere;margin-top:4px}
+.inventoryThumbnail{width:68px;height:68px;flex:0 0 68px;border-radius:12px;border:1px solid var(--border);background:#fff;display:grid;place-items:center;overflow:hidden;padding:6px}
+.inventoryThumbnail img{width:100%;height:100%;object-fit:contain}
+.inventoryThumbnail svg{width:30px;height:30px;color:#8390a5}
+@media(max-width:600px){.walmartFilters>label{flex:1;min-width:130px}.walmartFilters select{width:100%;min-width:0}.inventoryThumbnail{width:54px;height:54px;flex-basis:54px}.inventoryProduct{gap:10px;min-width:240px}}
+@media(forced-colors:active){select{appearance:auto;background-image:none}}
