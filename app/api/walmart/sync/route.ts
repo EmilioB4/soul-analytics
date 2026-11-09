@@ -1,5 +1,6 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {owner,db} from '../../../../lib/tiktok';
+import {walmartOrderDate,walmartOrdersUrl} from '../../../../lib/walmart';
 export const runtime='nodejs';
 export const maxDuration=60;
 type Obj=Record<string,unknown>;
@@ -24,22 +25,19 @@ export async function POST(req:NextRequest){
   const rows:Obj[]=[];
   let cursor='';
   for(let page=0;page<15;page++){
-   const url=new URL('https://marketplace.walmartapis.com/v3/orders');
-   url.searchParams.set('limit','200');
-   if(cursor)url.searchParams.set('nextCursor',cursor);
-   else url.searchParams.set('createdStartDate',since);
+   const url=walmartOrdersUrl(since,cursor);
    const res=await fetch(url.toString(),{headers:{'WM_SEC.ACCESS_TOKEN':token,'WM_SVC.NAME':'Walmart Marketplace','WM_QOS.CORRELATION_ID':crypto.randomUUID(),Accept:'application/json'},cache:'no-store'});
    const body:unknown=await res.json().catch(async()=>({raw:(await res.text().catch(()=>'' )).slice(0,400)}));
    if(!res.ok)return NextResponse.json({error:`Walmart orders HTTP ${res.status}: ${errorText(body)}`,diagnostics},{status:502});
    diagnostics.pages++;
    const root=obj(body),list=obj(root.list),elements=obj(list.elements);
    if(page===0)diagnostics.responseShapes=[`root: ${Object.keys(root).join(', ')}`,`list: ${Object.keys(list).join(', ')}`,`elements: ${Object.keys(elements).join(', ')}`];
-   const rawOrders=arr(elements.order??list.order??root.orders??obj(root.orders).order);
+   const rawOrders=arr(elements.order??list.order??obj(root.orders).order??root.orders);
    diagnostics.rawOrders+=rawOrders.length;
    for(const raw of rawOrders){
     const order=obj(raw),po=str(order.purchaseOrderId||order.customerOrderId);
-    const date=str(order.orderDate||order.createdDate).slice(0,10);
-    if(!po||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date)){diagnostics.skippedOrders++;continue;}
+    const date=walmartOrderDate(order.orderDate??order.createdDate);
+    if(!po||!date){diagnostics.skippedOrders++;continue;}
     const lines=arr(obj(order.orderLines).orderLine??order.orderLine);
     for(let index=0;index<lines.length;index++){
      const line=obj(lines[index]),item=obj(line.item);
@@ -67,6 +65,6 @@ export async function POST(req:NextRequest){
   if(rows.length===0)return NextResponse.json({orders:diagnostics.rawOrders,lines:0,feeSync:false,warning:'Walmart returned orders, but none produced importable lines. See diagnostics.',diagnostics});
   const database=db();
   for(let i=0;i<rows.length;i+=200){const {error}=await database.from('walmart_sales').upsert(rows.slice(i,i+200),{onConflict:'owner_id,order_id,line_id'});if(error)throw Error(`Walmart database save failed: ${error.message}`);}
-  return NextResponse.json({orders:diagnostics.rawOrders,lines:rows.length,feeSync:false,diagnostics,note:'WFS settlement fees are not imported by this endpoint.'});
+  return NextResponse.json({orders:diagnostics.rawOrders,lines:rows.length,feeSync:false,diagnostics,...(diagnostics.nextCursorPresent?{warning:'Imported the first 15 pages only. More Walmart orders remain; the import is incomplete.'}:{}),note:'WFS settlement fees are not imported by this endpoint.'});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Walmart sync failed'},{status:502});}
 }
