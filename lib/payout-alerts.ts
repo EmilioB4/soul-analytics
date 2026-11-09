@@ -1,3 +1,4 @@
+import {payoutSiteUrl} from './payout-brand';
 import {db} from './tiktok';
 import {decrypt} from './tiktok-orders';
 import {collectPayouts} from './payout-sources';
@@ -43,7 +44,7 @@ export async function checkPayoutAlerts(ownerId:string){
     const {data:current,error:currentError}=await client.from('payout_alert_settings').select('enabled,webhook_encrypted,lock_token').eq('owner_id',ownerId).single();if(currentError||!current?.enabled||current.lock_token!==token||current.webhook_encrypted!==settings.webhook_encrypted)throw Error('Alert configuration changed; check stopped.');
     const pending={...row(event,'sending'),attempts:(prior?.attempts||0)+1,updated_at:new Date().toISOString()};
     const save=prior?await client.from('payout_alert_events').update(pending).match(key):await client.from('payout_alert_events').insert(pending);if(save.error)throw Error('Could not claim notification; nothing sent.');
-    const delivery=await sendDiscord(webhook,payoutMessage(event));
+    const delivery=await sendDiscord(webhook,payoutMessage(event,{siteUrl:payoutSiteUrl()}));
     const saved=await client.from('payout_alert_events').update({state:delivery.state,message_id:delivery.messageId||null,retry_after:delivery.state==='retry'?new Date(Date.now()+(delivery.retrySeconds||60)*1000).toISOString():null,updated_at:new Date().toISOString()}).match(key);if(saved.error)throw Error('Delivery confirmation could not be saved; check history before retrying.');
     if(delivery.state==='sent')sent++;else {errors.push(delivery.state==='retry'?'Discord temporarily unavailable; delivery will retry.':'Discord delivery uncertain or webhook rejected. Review the channel and webhook; this event will not automatically resend.');break;}
    }

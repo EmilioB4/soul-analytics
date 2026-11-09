@@ -21,3 +21,22 @@ The owner-level database lease serializes cron and manual runs. Events are keyed
 Migration required for this feature only; existing sales and profit data are not changed.
 
 References: [TikTok payments](https://partner.tiktokshop.com/docv2/page/get-payments), [Walmart statement](https://developer.walmart.com/us-marketplace/docs/payment-statement-report), [Whatnot API](https://developers.whatnot.com/api-reference), [Whatnot financial reports](https://developers.whatnot.com/reports).
+
+## One-minute checks and branded notifications
+
+Run [payout_notifications_fast.sql](../supabase/payout_notifications_fast.sql) once after the base migration. It installs Supabase Cron/pg_net/Vault support, private scheduler functions, and a private Walmart owner binding table. In Integrations:
+
+1. If Walmart is not linked, click **Link my Walmart account**, then select Walmart and save. In-app linking is allowed only when there is exactly one approved profile in the workspace. Existing Vercel `WALMART_OWNER_ID` takes precedence; multiple-owner workspaces must use that explicit setting.
+2. Click **Enable 1-minute checks**. The server uses the existing `CRON_SECRET` (minimum 16 characters) and Vercel's production hostname. If that automatic hostname is unavailable, set `PAYOUT_APP_URL` to the production HTTPS origin, for example `https://your-site.vercel.app`, and redeploy. No secret is entered into a browser or committed to SQL. The scheduler stores its URL and authorization token in Vault.
+3. Click **Check now** once to establish the existing-payout baseline, and **Send test notification** to see the teal/lavender Soul embed in Discord.
+
+The scheduler runs through Supabase even when the site is closed and supports Vercel Hobby's restriction on native cron frequency. The existing daily Vercel cron remains a fallback. A single named Supabase job is updated on reconfiguration, not duplicated. Disable it in Supabase Cron if no longer needed; disabling notifications in the site immediately prevents subsequent checks from sending.
+
+The alert amount, platform, status and date use a compact branded embed; test messages use the same styling with an explicit test label. Notification history refreshes every 15 seconds while Integrations is visible. Near-real-time means one-minute polling after the platform exposes a status, plus API and delivery latency—not immediate notification when Seller Center first shows a withdrawable balance. TikTok processing/paid and Walmart scheduled/reported-sent statuses retain their original meanings. No unsupported “funds available” event is invented.
+
+Scheduler setup is not proof that HTTP calls are succeeding. Check Last check and errors in Integrations, and job/request history in Supabase Cron/pg_net, especially if deployment protection blocks background requests. For multiple enabled owners the existing scheduler processes one owner per run; each owner's interval increases accordingly.
+
+References: [Supabase scheduled HTTP calls and Vault](https://supabase.com/docs/guides/functions/schedule-functions), [Vercel cron frequency limits](https://vercel.com/docs/schedules/cron-jobs/usage-and-pricing).
+
+
+TikTok's PROCESSING event is presented as **Payout initiated**, followed by a separate **Sent** alert if the payment becomes PAID. Internal status keys stay unchanged, so updating the message label does not replay already recorded events. A payment already PAID when first observed does not fabricate an earlier initiation event. Walmart's statement exposes scheduled and reported-sent values, not a separate reliable initiation signal.
