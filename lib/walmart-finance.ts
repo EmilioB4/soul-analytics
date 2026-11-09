@@ -31,12 +31,19 @@ export function parseWalmartTransaction(raw:Record<string,unknown>,date:string,i
  const postedValue=get('Transaction Posted Timestamp','Transaction Posted Date');
  const posted=reportDate(postedValue||date);
  if(!posted)throw Error(`Invalid settlement date at row ${index+1}.`);
- return {report_date:date,row_index:index,posted_date:posted,order_id:get('Purchase Order #','Purchase Order Id')||null,line_id:get('Purchase Order line #')||null,sku:get('Partner Item Id','SKU')||null,fee_type:amountType||description||type||'Unclassified',kind,amount:kind==='transfer'&&!value?0:amount,currency,raw};
+ return {report_date:date,row_index:index,posted_date:posted,order_id:get('Purchase Order #','Purchase Order Id')||null,line_id:get('Purchase Order line #')||null,sku:get('Partner Item Id','SKU')||null,fee_type:kind==='fee'?[...new Set([amountType,description,type].filter(Boolean))].join(' · '):amountType||description||type||'Unclassified',kind,amount:kind==='transfer'&&!value?0:amount,currency,raw};
 }
 // Settlement amounts are signed from the seller's perspective. Debits become
 // positive expenses; fee reimbursements become negative expenses.
 export function settlementFees(rows:WalmartTransaction[]):WalmartFee[]{
- return rows.filter(r=>r.kind==='fee').map(r=>({order_id:r.order_id,line_id:r.line_id,sku:r.sku,fee_date:r.posted_date,fee_type:r.fee_type,amount:-r.amount,quantity:Number(r.raw?.['Ship Qty']??r.raw?.['Quantity'])||null}));
+ return rows.filter(r=>r.kind==='fee').map(r=>{
+  // Older imports retained the source fields but discarded descriptive fee labels.
+  // Restore them on read so saved actuals replace the correct component immediately.
+  const fields=new Map(Object.entries(r.raw||{}).map(([key,value])=>[normalize(key),String(value??'').trim()]));
+  const labels=[r.fee_type,fields.get('amounttype'),fields.get('transactiondescription'),fields.get('transactiontype')].filter((value):value is string=>Boolean(value));
+  const feeType=[...new Set(labels)].join(' · ');
+  return {order_id:r.order_id,line_id:r.line_id,sku:r.sku,fee_date:r.posted_date,fee_type:feeType,amount:-r.amount,quantity:Number(fields.get('shipqty')??fields.get('quantity'))||null};
+ });
 }
 export function allocateWalmartFees(sales:WalmartSale[],fees:WalmartFee[],cutoff='',filter='All',end='9999-12-31'){
  const selected=sales.filter(s=>(!cutoff||s.order_date>=cutoff)&&s.order_date<=end&&(filter==='All'||s.fulfillment===filter));
