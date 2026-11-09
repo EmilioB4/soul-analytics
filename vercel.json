@@ -1,6 +1,16 @@
 {
   "crons": [
-    {"path": "/api/whatnot/cron", "schedule": "0 9 * * *"},
-    {"path": "/api/whatnot/finance-cron", "schedule": "15 9 * * *"}
+    {
+      "path": "/api/whatnot/cron",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/whatnot/finance-cron",
+      "schedule": "15 9 * * *"
+    },
+    {
+      "path": "/api/walmart/inventory/wfs/cron",
+      "schedule": "30 9 * * *"
+    }
   ]
 }

@@ -1,6 +1,6 @@
 export type WalmartTransaction={report_date:string;row_index:number;posted_date:string;order_id:string|null;line_id:string|null;sku:string|null;fee_type:string;kind:'fee'|'refund'|'sale'|'tax'|'transfer'|'unknown';amount:number;currency:string;raw:Record<string,unknown>};
 export type WalmartSale={order_id:string;line_id:string;order_date:string;sku:string;fulfillment:string};
-export type WalmartFee={order_id:string|null;sku:string|null;fee_date:string;fee_type:string;amount:number;line_id?:string|null};
+export type WalmartFee={order_id:string|null;sku:string|null;fee_date:string;fee_type:string;amount:number;line_id?:string|null;quantity?:number|null};
 const normalize=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]/g,'');
 export function reportDate(value:unknown):string|null{
  const s=String(value??'').trim();
@@ -36,7 +36,7 @@ export function parseWalmartTransaction(raw:Record<string,unknown>,date:string,i
 // Settlement amounts are signed from the seller's perspective. Debits become
 // positive expenses; fee reimbursements become negative expenses.
 export function settlementFees(rows:WalmartTransaction[]):WalmartFee[]{
- return rows.filter(r=>r.kind==='fee').map(r=>({order_id:r.order_id,line_id:r.line_id,sku:r.sku,fee_date:r.posted_date,fee_type:r.fee_type,amount:-r.amount}));
+ return rows.filter(r=>r.kind==='fee').map(r=>({order_id:r.order_id,line_id:r.line_id,sku:r.sku,fee_date:r.posted_date,fee_type:r.fee_type,amount:-r.amount,quantity:Number(r.raw?.['Ship Qty']??r.raw?.['Quantity'])||null}));
 }
 export function allocateWalmartFees(sales:WalmartSale[],fees:WalmartFee[],cutoff='',filter='All'){
  const selected=sales.filter(s=>(!cutoff||s.order_date>=cutoff)&&(filter==='All'||s.fulfillment===filter));
