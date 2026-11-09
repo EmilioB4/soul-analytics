@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {tiktokPayoutEvents,walmartPayoutEvents,discordWebhookUrl,payoutMessage,payoutTestMessage} from '../lib/payout-events.ts';
+import {tiktokPayoutEvents,walmartPayoutEvents,discordWebhookUrl,payoutMessage,payoutTestMessage,maskedDiscordWebhook} from '../lib/payout-events.ts';
 const payment=(extra={})=>({id:'p1',status:'PAID',amount:{currency:'USD',value:'123.45'},create_time:1794225600,...extra});
 const statement=(extra={})=>({status:'OK',statusCode:200,payload:{sellerInfo:{paymentStatus:'ACTIVE'},accountSummary:{scheduledSettlementDate:'2026-11-10',closingBalance:100,paidToYou:0,...extra}}});
 test('TikTok uses actual payment statuses and amounts; never labels processing as available',()=>{
@@ -29,4 +29,9 @@ test('branded payout embeds are concise and distinguish scheduled, processing an
   const embed=message.embeds[0];assert.equal(embed.title,'$250.00');assert.equal(embed.fields[0].value,status);assert.equal(embed.color,color);assert.equal(embed.fields.length,2);assert.equal(embed.timestamp,options.observedAt);assert.ok(embed.description.length<160);assert.doesNotMatch(embed.description,/available to withdraw/i);
  }
  const testMessage=payoutTestMessage(options);assert.match(testMessage.embeds[0].description,/test notification/);assert.equal(testMessage.embeds[0].fields,undefined);
+});
+
+test('saved webhook display preserves its identity while removing the full token',()=>{
+ const token='abcdefghijklmnopqrstuvwxyz_123';const display=maskedDiscordWebhook('https://discord.com/api/webhooks/123456789012345678/'+token);
+ assert.equal(display,'https://discord.com/api/webhooks/123456789012345678/••••••••');assert.ok(!display.includes(token));
 });

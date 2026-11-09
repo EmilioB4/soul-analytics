@@ -40,3 +40,5 @@ References: [Supabase scheduled HTTP calls and Vault](https://supabase.com/docs/
 
 
 TikTok's PROCESSING event is presented as **Payout initiated**, followed by a separate **Sent** alert if the payment becomes PAID. Internal status keys stay unchanged, so updating the message label does not replay already recorded events. A payment already PAID when first observed does not fabricate an earlier initiation event. Walmart's statement exposes scheduled and reported-sent values, not a separate reliable initiation signal.
+
+The webhook field persistently displays its saved Discord URL and webhook ID with the token masked. Replace webhook opens an editable field; Cancel replacement keeps the current saved URL. Saving other preferences does not submit the masked display as a replacement URL.
