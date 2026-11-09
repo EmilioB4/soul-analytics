@@ -8,10 +8,10 @@ export async function walmartAccessToken(){
  if(!token)throw Error('Walmart returned no access token.');
  return String(token);
 }
-export async function walmartReport(path:string,token:string){
+export async function walmartReport(path:string,token:string,service='settlement reports'){
  const url=new URL(path,'https://marketplace.walmartapis.com');
  if(url.origin!=='https://marketplace.walmartapis.com')throw Error('Invalid Walmart report URL.');
  const response=await fetch(url,{headers:{'WM_SEC.ACCESS_TOKEN':token,'WM_SVC.NAME':'Walmart Marketplace','WM_QOS.CORRELATION_ID':crypto.randomUUID(),Accept:'application/json'},cache:'no-store',signal:AbortSignal.timeout(15000)});
- if(!response.ok)throw Error(`Walmart settlement reports HTTP ${response.status}. ${response.status===403?'Enable Reports access for this Walmart API key.':response.status===429?'Walmart rate limit reached; retry later.':'Check the Walmart report availability and API permissions.'}`);
+ if(!response.ok)throw Error(`Walmart ${service} HTTP ${response.status}. ${response.status===403?`Enable ${service==='WFS inventory'?'WFS Inventory':'Reports'} access for this Walmart API key.`:response.status===429?'Walmart rate limit reached; retry later.':'Check the Walmart report availability and API permissions.'}`);
  return response.json();
 }
