@@ -1,5 +1,6 @@
 import {NextRequest,NextResponse} from 'next/server';
-import {owner,db} from '../../../../lib/tiktok';
+import {syncRequestOwner} from '../../../../lib/order-sync-auth';
+import {db} from '../../../../lib/tiktok';
 import {newYorkMidnight} from '../../../../lib/walmart-period';
 import {walmartOrderDate,walmartOrdersUrl} from '../../../../lib/walmart';
 export const runtime='nodejs';
@@ -12,7 +13,7 @@ const money=(x:unknown)=>{const v=obj(x);const n=Number(v.amount??v.value??x);re
 const errorText=(x:unknown)=>JSON.stringify(x).slice(0,700);
 export async function POST(req:NextRequest){
  try{
-  const user=await owner(req.headers.get('authorization'));
+  const user=await syncRequestOwner(req,'walmart');
   if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
   const id=process.env.WALMART_CLIENT_ID,secret=process.env.WALMART_CLIENT_SECRET;
   if(!id||!secret)return NextResponse.json({error:'Missing WALMART_CLIENT_ID or WALMART_CLIENT_SECRET in Vercel.'},{status:503});

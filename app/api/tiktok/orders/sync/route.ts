@@ -1,11 +1,12 @@
 import {NextRequest,NextResponse} from 'next/server';
-import {owner,db} from '../../../../../lib/tiktok';
+import {syncRequestOwner} from '../../../../../lib/order-sync-auth';
+import {db} from '../../../../../lib/tiktok';
 import {accessToken,tikTokCall,orderRow,TikTokOrder} from '../../../../../lib/tiktok-orders';
 export const runtime='nodejs';
 export const maxDuration=60;
 export async function POST(req:NextRequest){
  try{
-  const user=await owner(req.headers.get('authorization'));
+  const user=await syncRequestOwner(req,'tiktok');
   if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
   const client=db();
   const {data:connection,error:connectionError}=await client.from('tiktok_connections').select('owner_id,access_token_encrypted,refresh_token_encrypted,access_expires_at,refresh_expires_at').eq('owner_id',user.id).maybeSingle();
@@ -18,12 +19,13 @@ export async function POST(req:NextRequest){
   const start=Math.floor(Date.now()/1000)-30*86400;
   const end=Math.floor(Date.now()/1000)+60;
   let pageToken='';let total=0;let pages=0;let complete=false;
-  // Bounded, manual 30-day backfill; no unattended scheduler or infinite pagination.
+  // Shared manual/background 30-day overlap; stable IDs make repeated imports idempotent.
   for(let page=0;page<10;page++){
    const args:Record<string,string>={shop_cipher:String(shop.cipher),page_size:'100',sort_field:'create_time',sort_order:'DESC'};
    if(pageToken)args.page_token=pageToken;
    const result=await tikTokCall('/order/202309/orders/search',token,{create_time_ge:start,create_time_lt:end},args);
-   const orders:TikTokOrder[]=result?.orders||[];
+   if(!Array.isArray(result?.orders))throw Error('Unrecognized TikTok order response; sync incomplete.');
+   const orders:TikTokOrder[]=result.orders;
    const rows=orders.filter(o=>!!o.id).map(o=>orderRow(o,user.id,String(shop.id)));
    if(rows.length){
     const {error}=await client.from('tiktok_orders').upsert(rows,{onConflict:'owner_id,shop_id,order_id'});
