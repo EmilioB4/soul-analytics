@@ -1,12 +1,15 @@
+import {soldQuantity} from './sold-units';
 import {db} from './tiktok';
-type Ledger={ledger_transaction_id:string;order_id:string|null;livestream_id:string|null;livestream_title:string|null;transaction_type:string;amount:number|string;sale_price:number|string|null;commission_fee:number|string|null;processing_fee:number|string|null;commission_tax:number|string|null;processing_tax:number|string|null;seller_shipping:number|string|null;completed_at:string|null};
+type Ledger={quantity_sold?:number|null;ledger_transaction_id:string;order_id:string|null;livestream_id:string|null;livestream_title:string|null;transaction_type:string;amount:number|string;sale_price:number|string|null;commission_fee:number|string|null;processing_fee:number|string|null;commission_tax:number|string|null;processing_tax:number|string|null;seller_shipping:number|string|null;completed_at:string|null};
 const val=(v:unknown)=>Number(v||0);
 const round=(v:number)=>Math.round((v+Number.EPSILON)*100)/100;
 export async function financialSummary(ownerId:string){
- const client=db();const ledger:Ledger[]=[];
+ const client=db();const ledger:Ledger[]=[];let unitsAvailable=true;
  for(let offset=0;offset<20000;offset+=500){
-  const {data,error}=await client.from('whatnot_ledger').select('ledger_transaction_id,order_id,livestream_id,livestream_title,transaction_type,amount,sale_price,commission_fee,processing_fee,commission_tax,processing_tax,seller_shipping,completed_at').eq('owner_id',ownerId).order('ledger_transaction_id').range(offset,offset+499);
-  if(error)throw Error('Financial tables missing. Run whatnot_financials.sql.');
+  const columns='ledger_transaction_id,order_id,livestream_id,livestream_title,transaction_type,amount,sale_price,commission_fee,processing_fee,commission_tax,processing_tax,seller_shipping,completed_at';
+  let result:{data:unknown[]|null;error:{message:string}|null}=await client.from('whatnot_ledger').select(columns+(unitsAvailable?',quantity_sold':'')).eq('owner_id',ownerId).order('ledger_transaction_id').range(offset,offset+499);
+  if(result.error&&unitsAvailable&&/quantity_sold/.test(result.error.message)){unitsAvailable=false;result=await client.from('whatnot_ledger').select(columns).eq('owner_id',ownerId).order('ledger_transaction_id').range(offset,offset+499);}
+  const {data,error}=result;if(error)throw Error('Financial tables missing. Run whatnot_financials.sql.');
   ledger.push(...(data||[]) as Ledger[]);if(!data||data.length<500)break;
  }
  const {data:costs,error:cErr}=await client.from('whatnot_stream_cogs').select('livestream_id,livestream_title,total_cogs').eq('owner_id',ownerId);
@@ -18,14 +21,15 @@ export async function financialSummary(ownerId:string){
  const hourlySales=new Map<string,number>();
  const orderShow=new Map<string,string>();
  for(const tx of ledger)if(tx.transaction_type==='ORDER_EARNINGS'&&tx.order_id&&tx.livestream_id)orderShow.set(tx.order_id,tx.livestream_id);
- type Metrics={id:string;title:string;gross:number;earnings:number;commission:number;processing:number;feeTaxes:number;shipping:number;refunds:number;otherAdjustments:number;orders:Set<string>;entries:number;cogs:number|null;firstSaleAt:string|null};
+ type Metrics={units:number;missingUnits:number;id:string;title:string;gross:number;earnings:number;commission:number;processing:number;feeTaxes:number;shipping:number;refunds:number;otherAdjustments:number;orders:Set<string>;entries:number;cogs:number|null;firstSaleAt:string|null};
  const map=new Map<string,Metrics>();
- const ensure=(id:string,title:string)=>{let m=map.get(id);if(!m){m={id,title,gross:0,earnings:0,commission:0,processing:0,feeTaxes:0,shipping:0,refunds:0,otherAdjustments:0,orders:new Set(),entries:0,cogs:null,firstSaleAt:null};map.set(id,m);}else if(title&&m.title===id)m.title=title;return m;};
+ const ensure=(id:string,title:string)=>{let m=map.get(id);if(!m){m={units:0,missingUnits:0,id,title,gross:0,earnings:0,commission:0,processing:0,feeTaxes:0,shipping:0,refunds:0,otherAdjustments:0,orders:new Set(),entries:0,cogs:null,firstSaleAt:null};map.set(id,m);}else if(title&&m.title===id)m.title=title;return m;};
  for(const tx of ledger){
   const id=tx.livestream_id||(tx.order_id?orderShow.get(tx.order_id):null)||'unassigned';
   const m=ensure(id,tx.livestream_title|| (id==='unassigned'?'Unassigned / marketplace':id));
   m.earnings+=val(tx.amount);m.entries++;
   if(tx.transaction_type==='ORDER_EARNINGS'){
+   const qty=soldQuantity(tx.quantity_sold);if(qty===null)m.missingUnits++;else m.units+=qty;
    if(tx.completed_at && !Number.isNaN(new Date(tx.completed_at).getTime())){const day=dailyKey(tx.completed_at);const sale=val(tx.sale_price);dailySales.set(day,(dailySales.get(day)||0)+sale);const k=`${day}:${hourKey(tx.completed_at)}`;hourlySales.set(k,(hourlySales.get(k)||0)+sale);}
    if(tx.completed_at && (!m.firstSaleAt || tx.completed_at<m.firstSaleAt))m.firstSaleAt=tx.completed_at;m.gross+=val(tx.sale_price);m.commission+=Math.abs(val(tx.commission_fee));m.processing+=Math.abs(val(tx.processing_fee));m.feeTaxes+=Math.abs(val(tx.commission_tax))+Math.abs(val(tx.processing_tax));m.shipping+=Math.abs(val(tx.seller_shipping));if(tx.order_id)m.orders.add(tx.order_id);
   }else if(/REFUND/.test(tx.transaction_type))m.refunds+=val(tx.amount);
@@ -33,8 +37,8 @@ export async function financialSummary(ownerId:string){
   else m.otherAdjustments+=val(tx.amount);
  }
  for(const c of costs||[]){const m=ensure(c.livestream_id,c.livestream_title||c.livestream_id);m.cogs=val(c.total_cogs);}
- const streams=Array.from(map.values()).map(m=>({id:m.id,title:m.title,firstSaleAt:m.firstSaleAt,gross:round(m.gross),earnings:round(m.earnings),commission:round(m.commission),processing:round(m.processing),feeTaxes:round(m.feeTaxes),shipping:round(m.shipping),refunds:round(m.refunds),otherAdjustments:round(m.otherAdjustments),orders:m.orders.size,entries:m.entries,cogs:m.cogs,profit:m.cogs===null?null:round(m.earnings-m.cogs)})).sort((a,b)=>b.gross-a.gross);
+ const streams=Array.from(map.values()).map(m=>({unitsSold:m.missingUnits?null:m.units,knownUnitsSold:m.units,missingUnitRows:m.missingUnits,id:m.id,title:m.title,firstSaleAt:m.firstSaleAt,gross:round(m.gross),earnings:round(m.earnings),commission:round(m.commission),processing:round(m.processing),feeTaxes:round(m.feeTaxes),shipping:round(m.shipping),refunds:round(m.refunds),otherAdjustments:round(m.otherAdjustments),orders:m.orders.size,entries:m.entries,cogs:m.cogs,profit:m.cogs===null?null:round(m.earnings-m.cogs)})).sort((a,b)=>b.gross-a.gross);
  const {data:runs,error:rErr}=await client.from('whatnot_report_runs').select('status,created_at,imported_at,start_at,end_at').eq('owner_id',ownerId).order('created_at',{ascending:false}).limit(20);
  if(rErr)throw Error('Unable to read financial report status.');
- return {dailySales:[...dailySales].map(([date,amount])=>({date,amount:round(amount)})),hourlySales:[...hourlySales].map(([key,amount])=>({key,amount:round(amount)})),streams,ledgerEntries:ledger.length,reportRuns:runs||[],totalEarnings:round(streams.reduce((s,m)=>s+m.earnings,0)),totalGross:round(streams.reduce((s,m)=>s+m.gross,0)),unassigned:streams.find(m=>m.id==='unassigned')||null,warning:'Net earnings are signed financial ledger amounts, before your COGS. Some shipping and adjustments can remain unassigned. Settlements post after orders; this is not a payout statement.'};
+ return {unitSetupRequired:!unitsAvailable,dailySales:[...dailySales].map(([date,amount])=>({date,amount:round(amount)})),hourlySales:[...hourlySales].map(([key,amount])=>({key,amount:round(amount)})),streams,ledgerEntries:ledger.length,reportRuns:runs||[],totalEarnings:round(streams.reduce((s,m)=>s+m.earnings,0)),totalGross:round(streams.reduce((s,m)=>s+m.gross,0)),unassigned:streams.find(m=>m.id==='unassigned')||null,warning:'Net earnings are signed financial ledger amounts, before your COGS. Some shipping and adjustments can remain unassigned. Settlements post after orders; this is not a payout statement.'};
 }

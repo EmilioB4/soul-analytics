@@ -296,3 +296,10 @@ html[data-soul-theme=light] .inventoryBadge.healthy{color:#197b69}html[data-soul
 .feeAssumptions{padding:22px;min-width:0}.feeAssumptions summary{cursor:pointer;font-weight:650;color:var(--text)}.feeAssumptions p{font-size:12px;line-height:1.7;margin:16px 0}.feeAssumptions .inventoryField select{width:100%}.wfsCatalog .modernTable{min-width:1050px}
 
 .walmartOverview{width:100%;min-width:0;max-width:100%}.walmartOverview>.surface,.walmartOverview>.metricGrid,.walmartOverview>.alertBox{min-width:0;max-width:100%}.walmartOverview .tableScroll{min-width:0;max-width:100%;overflow:auto;contain:inline-size}.walmartOverview .surface{overflow:hidden}.walmartOverview .surfaceHeader>div{min-width:0}.walmartOverview .metricCard{min-width:0}.walmartOverview .metricValue,.walmartOverview .alertBox,.wfsTracker .alertBox{overflow-wrap:anywhere}
+
+/* Marketplace overview and unit metrics reuse the shared dashboard visual system. */
+.walmartReporting .segment{max-width:100%}
+.walmartOverview .sellersCard .inventoryThumbnail{flex:0 0 52px;width:52px;height:52px}
+.wnIntMetrics{grid-template-columns:repeat(auto-fit,minmax(175px,1fr))}
+.wnIntNumbers{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+@media(max-width:600px){.walmartReporting{gap:12px}.walmartReporting .segment{gap:2px}.walmartReporting .segment button{padding:9px 10px}.walmartOverview .sellerInfo b{font-size:12px}.wnIntMetrics{grid-template-columns:repeat(2,minmax(0,1fr))}}

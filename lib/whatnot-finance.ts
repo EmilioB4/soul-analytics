@@ -1,3 +1,4 @@
+import {soldQuantity} from './sold-units';
 import {db} from './tiktok';
 import {callWhatnot,unwrap,textValue} from './whatnot';
 
@@ -42,7 +43,7 @@ async function getReport(id:string){
  const result=asObj(await callWhatnot('/reports/'+encodeURIComponent(id)));
  const r=asObj(result.data);return Object.keys(r).length?r:result;
 }
-async function importReport(ownerId:string,id:string,url:string){
+async function importReport(ownerId:string,id:string,url:string,withUnits:boolean){
  // Only download URLs provided directly by Whatnot, and never persist their presigned values.
  const parsed=new URL(url);
  if(parsed.protocol!=='https:' || !(/(^|\.)whatnot\.com$|(^|\.)whatnotcdn\.com$|(^|\.)amazonaws\.com$|(^|\.)cloudfront\.net$|(^|\.)googleapis\.com$/.test(parsed.hostname)))throw Error('Financial report download host not recognized; no data imported.');
@@ -59,7 +60,7 @@ async function importReport(ownerId:string,id:string,url:string){
    const amount=num(r.transaction_amount);if(amount===null)throw Error('Financial report includes a transaction without a valid amount.');
    const currency=txt(r.transaction_currency).toUpperCase()||'USD';
    if(currency!=='USD')throw Error('Non-USD financial entry detected. Multi-currency reporting is not configured.');
-   return {owner_id:ownerId,ledger_transaction_id:tx,completed_at:iso(r.transaction_completed_at_utc),order_id:txt(r.order_id)||null,livestream_id:txt(r.livestream_id)||null,livestream_title:txt(r.livestream_title)||null,transaction_type:txt(r.transaction_type).toUpperCase(),currency,amount,sale_price:num(r.post_coupon_price),commission_fee:num(r.commission_fee),processing_fee:num(r.processing_fee??r.payment_processing_fee),commission_tax:num(r.commission_tax??r.tax_on_commission_fee),processing_tax:num(r.processing_fee_tax??r.tax_on_payment_processing_fee),seller_shipping:num(r.seller_shipping_charge??r.shipping_fee),import_report_id:id,updated_at:new Date().toISOString()};
+   return {owner_id:ownerId,ledger_transaction_id:tx,completed_at:iso(r.transaction_completed_at_utc),order_id:txt(r.order_id)||null,livestream_id:txt(r.livestream_id)||null,livestream_title:txt(r.livestream_title)||null,transaction_type:txt(r.transaction_type).toUpperCase(),...(withUnits?{quantity_sold:txt(r.transaction_type).toUpperCase()==='ORDER_EARNINGS'?soldQuantity(r.quantity_sold):null}:{}),currency,amount,sale_price:num(r.post_coupon_price),commission_fee:num(r.commission_fee),processing_fee:num(r.processing_fee??r.payment_processing_fee),commission_tax:num(r.commission_tax??r.tax_on_commission_fee),processing_tax:num(r.processing_fee_tax??r.tax_on_payment_processing_fee),seller_shipping:num(r.seller_shipping_charge??r.shipping_fee),import_report_id:id,updated_at:new Date().toISOString()};
   }).filter((r):r is NonNullable<typeof r>=>r!==null);
   if(mapped.length){const {error}=await db().from('whatnot_ledger').upsert(mapped,{onConflict:'owner_id,ledger_transaction_id'});if(error)throw Error('Unable to save financial ledger. Ensure whatnot_financials.sql was installed.');accepted+=mapped.length;}
  }
@@ -67,6 +68,7 @@ async function importReport(ownerId:string,id:string,url:string){
 }
 export async function syncFinancialReports(ownerId:string){
  const client=db();let imported=0,completed=0,created=0;
+ const unitSchema=await client.from('whatnot_ledger').select('quantity_sold').eq('owner_id',ownerId).limit(1);const withUnits=!unitSchema.error;
  // Poll up to six completed/pending runs each invocation (the report API is asynchronous).
  const {data:pending,error:pErr}=await client.from('whatnot_report_runs').select('*').eq('owner_id',ownerId).is('imported_at',null).order('created_at',{ascending:true}).limit(2);
  if(pErr)throw Error('Financial tables missing. Run supabase/whatnot_financials.sql first.');
@@ -74,11 +76,27 @@ export async function syncFinancialReports(ownerId:string){
   const report=await getReport(String(run.report_id));const status=txt(report.status)||'unknown';
   if(status==='completed'){
    const url=txt(report.report_url);if(!url)throw Error('Completed Whatnot report does not include a download URL.');
-   imported+=await importReport(ownerId,String(run.report_id),url);completed++;
+   imported+=await importReport(ownerId,String(run.report_id),url,withUnits);completed++;
    const {error}=await client.from('whatnot_report_runs').update({status,updated_at:new Date().toISOString(),imported_at:new Date().toISOString()}).eq('owner_id',ownerId).eq('report_id',run.report_id);if(error)throw Error('Unable to mark financial report imported.');
   }else if(status==='failed'||status==='cancelled'){
    await client.from('whatnot_report_runs').update({status,updated_at:new Date().toISOString()}).eq('owner_id',ownerId).eq('report_id',run.report_id);
   }else await client.from('whatnot_report_runs').update({status,updated_at:new Date().toISOString()}).eq('owner_id',ownerId).eq('report_id',run.report_id);
+ }
+ // Refresh legacy report windows whose imports predate quantity storage.
+ // Retain ledger amounts and costs while the replacement report is generated.
+ if(withUnits){
+  const candidates=await client.from('whatnot_report_runs').select('report_id,start_at,end_at,imported_at').eq('owner_id',ownerId).order('created_at',{ascending:true}).limit(100);
+  if(candidates.error)throw Error('Could not inspect report windows for unit refresh.');
+  const eligible=(candidates.data||[]).filter(r=>r.imported_at),reportIds=eligible.map(r=>r.report_id);
+  // Ignore superseded report IDs so unavailable legacy rows cannot starve other windows.
+  const missing=reportIds.length?await client.from('whatnot_ledger').select('import_report_id').eq('owner_id',ownerId).eq('transaction_type','ORDER_EARNINGS').in('import_report_id',reportIds).is('quantity_sold',null).limit(1000):{data:[],error:null};
+  if(missing.error)throw Error('Could not inspect missing item quantities.');
+  const ids=[...new Set((missing.data||[]).map(r=>r.import_report_id).filter(Boolean))];
+  for(const id of ids){if(created>=2)break;
+   const prior=eligible.find(r=>r.report_id===id);if(!prior)continue;
+   const refreshed=await requestReport(prior.start_at,prior.end_at);
+   const saved=await client.from('whatnot_report_runs').update({report_id:refreshed.id,status:refreshed.status,imported_at:null,created_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('owner_id',ownerId).eq('report_id',id);if(saved.error)throw Error('Could not queue unit quantity refresh.');created++;
+  }
  }
  // Backfill one missing weekly window per invocation, then daily cron continues automatically.
  // Include current week so today’s newly completed financial transactions are picked up.
@@ -108,5 +126,5 @@ export async function syncFinancialReports(ownerId:string){
    created++;break;
   }
  }
- return {reportsGenerated:created,reportsCompleted:completed,ledgerRowsProcessed:imported,notice:'Reports are asynchronous. Run sync again after Whatnot finishes generating a report; daily cron will continue backfilling.'};
+ return {unitSetupRequired:!withUnits,reportsGenerated:created,reportsCompleted:completed,ledgerRowsProcessed:imported,notice:'Reports are asynchronous. Run sync again after Whatnot finishes generating a report; daily cron will continue backfilling.'};
 }
