@@ -48,6 +48,7 @@ export default function WhatnotDashboard(){
   catch(e){setError(e instanceof Error?e.message:'Unable to load Whatnot data');}
  },[request]);
  useEffect(()=>{void refresh();},[refresh]);
+ useEffect(()=>{const timer=setInterval(()=>{if(document.visibilityState==='visible')void refresh();},60000);return()=>clearInterval(timer);},[refresh]);
  const shows=useMemo(()=>[...(finance?.streams||[])].filter(s=>s.id!=='unassigned').sort((a,b)=>(b.firstSaleAt||'').localeCompare(a.firstSaleAt||'')),[finance]);
  const bounds=periodBounds(period,appliedRange?.start||'',appliedRange?.end||'');
  const dateReady=period!=='custom'||!!appliedRange;

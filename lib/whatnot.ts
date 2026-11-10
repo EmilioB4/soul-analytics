@@ -76,7 +76,7 @@ export function nextCursor(v:unknown){const o=record(v),d=record(o.data),page=re
  return textValue(o.next_cursor)||textValue(o.next_page_token)||textValue(d.next_cursor)||textValue(d.next_page_token)||textValue(page.next_cursor)||textValue(page.next_page_token)||textValue(dp.next_cursor)||textValue(dp.next_page_token);
 }
 export async function importWhatnot(ownerId:string){
- const client=db();let ordersCount=0,showsCount=0,orderPages=0,showPages=0;
+ const client=db();let ordersCount=0,showsCount=0,orderPages=0,showPages=0;let incomplete=false;
  // The provider may return more than one page. Bound each invocation to avoid long Vercel executions.
  for(const kind of ['orders','shows'] as const){
   let cursor:string|null=null;const cursors=new Set<string>();
@@ -94,8 +94,8 @@ export async function importWhatnot(ownerId:string){
    if(rows.length){const table=kind==='orders'?'whatnot_orders':'whatnot_shows';const {error}=await client.from(table).upsert(rows,{onConflict:'owner_id,external_id'});
     if(error)throw Error('Unable to save Whatnot '+kind+'. Run supabase/whatnot.sql first.');}
    if(kind==='orders'){ordersCount+=rows.length;orderPages++;}else{showsCount+=rows.length;showPages++;}
-   const next=nextCursor(response);if(!next||cursors.has(next))break;cursors.add(next);cursor=next;
+   const next=nextCursor(response);if(!next)break;if(cursors.has(next))throw Error('Repeated Whatnot pagination cursor.');cursors.add(next);cursor=next;if(page===4)incomplete=true;
   }
  }
- return {ordersProcessed:ordersCount,showsProcessed:showsCount,orderPages,showPages,notice:'Imports are upserted by provider ID. This first phase does not calculate fees, revenue, or COGS from unverified fields.'};
+ return {incomplete,ordersProcessed:ordersCount,showsProcessed:showsCount,orderPages,showPages,notice:'Imports are upserted by provider ID. This first phase does not calculate fees, revenue, or COGS from unverified fields.'};
 }

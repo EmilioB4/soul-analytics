@@ -1,0 +1,20 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';import ts from 'typescript';
+const compile=path=>ts.transpileModule(fs.readFileSync(new URL('../'+path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021}}).outputText;
+const id='11111111-1111-4111-8111-111111111111',lease='22222222-2222-4222-8222-222222222222';
+function auth({data={enabled:true,lock_token:lease,locked_until:new Date(Date.now()+60000).toISOString()},secret='cron-secret',binding=true}={}){const exports={};let manual=0;const q={select:()=>q,eq:()=>q,maybeSingle:async()=>({data,error:null})};const mocks={'./tiktok':{owner:async()=>{manual++;return {id:'manual-owner'};},db:()=>({from:()=>q})},'./payout-ownership':{walmartPayoutOwnerMatches:async()=>binding}};vm.runInNewContext(compile('lib/order-sync-auth.ts'),{exports,require:k=>mocks[k],process:{env:{CRON_SECRET:secret}},Date});return {run:(headers,platform='walmart')=>exports.syncRequestOwner({headers:new Headers(headers)},platform),manual:()=>manual};}
+const headers={authorization:'Bearer cron-secret','x-soul-sync-owner':id,'x-soul-sync-lease':lease};
+test('manual order sync preserves owner authentication; background requires secret, enabled scoped lease and account binding',async()=>{
+ const manual=auth();assert.equal((await manual.run({authorization:'Bearer user'})).id,'manual-owner');assert.equal(manual.manual(),1);
+ assert.equal((await auth().run(headers)).id,id);
+ for(const options of [{secret:'other'},{data:{enabled:false}},{data:{enabled:true,lock_token:'wrong',locked_until:new Date(Date.now()+60000).toISOString()}},{data:{enabled:true,lock_token:lease,locked_until:'2020-01-01'}},{binding:false}])assert.equal(await auth(options).run(headers),null);
+ assert.equal(await auth().run({...headers,'x-soul-sync-owner':'bad'}),null);
+});
+function runner({claim=true,reply={imported:2,complete:true},ok=true}={}){
+ const exports={},updates=[],calls=[];const jobs=[{owner_id:id,platform:'tiktok'}];
+ const q={select:()=>q,eq:()=>q,order:()=>q,limit:async()=>({data:jobs,error:null}),update:value=>{updates.push(value);return q;},then:ok=>Promise.resolve({error:null}).then(ok)};
+ const mocks={'next/server':{NextResponse:{json:(body,options={})=>({body,status:options.status||200})},NextRequest:class{constructor(url,opts){this.headers=new Headers(opts.headers);this.payload=opts.body;}async json(){return JSON.parse(this.payload);}}},'../../../../../lib/tiktok':{db:()=>({from:()=>q,rpc:async()=>({data:claim,error:null})})},'../../../walmart/sync/route':{POST:async()=>{throw Error('wrong provider');}},'../../../tiktok/orders/sync/route':{POST:async req=>{calls.push(req);return {ok,json:async()=>reply};}},'../../../../../lib/whatnot':{importWhatnot:async()=>({ordersProcessed:0})}};
+ vm.runInNewContext(compile('app/api/orders/auto-sync/cron/route.ts'),{exports,require:k=>mocks[k],process:{env:{CRON_SECRET:'cron-secret'}},crypto:{randomUUID:()=>lease},Date,Error,JSON});return {run:header=>exports.GET({headers:new Headers({authorization:header||'Bearer cron-secret'})}),updates,calls};
+}
+test('scheduled order sync forwards only its claimed owner/lease and records completed imports',async()=>{const s=runner();assert.equal((await s.run()).status,200);assert.equal(s.calls[0].headers.get('x-soul-sync-owner'),id);assert.equal(s.calls[0].headers.get('x-soul-sync-lease'),lease);assert.ok(s.updates.some(u=>u.last_success_at&&u.last_count===2));assert.ok(s.updates.some(u=>u.lock_token===null));});
+test('failed, incomplete and overlapping imports do not advance successful sync time',async()=>{for(const opts of [{ok:false},{reply:{complete:false}},{reply:{diagnostics:{skippedLines:1}}}]){const s=runner(opts);await s.run();assert.ok(!s.updates.some(u=>u.last_success_at));assert.ok(s.updates.some(u=>u.last_error));}const busy=runner({claim:false});await busy.run();assert.equal(busy.calls.length,0);});
+test('order cron rejects unauthorized requests before importing',async()=>{const s=runner();assert.equal((await s.run('Bearer wrong')).status,401);assert.equal(s.calls.length,0);});
