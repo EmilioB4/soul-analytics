@@ -1,6 +1,8 @@
 # Discord payout alerts
 
-1. Run [payout_notifications.sql](../supabase/payout_notifications.sql) in the Supabase SQL Editor. The tables and claim function are server-only; no authenticated or anonymous client grants exist.
+For current activation and verified background status, follow [automation-repair.md](automation-repair.md). Run its single repair SQL and use **Start / repair automatic updates**; saving enabled notification preferences now also starts scheduling.
+
+1. Run [automation_repair.sql](../supabase/automation_repair.sql) in the Supabase SQL Editor. The tables and claim function are server-only; no authenticated or anonymous client grants exist.
 2. Set `TIKTOK_TOKEN_ENCRYPTION_KEY` to the existing 32-byte hex key used by TikTok connections. Do not replace an existing key: doing so would invalidate stored tokens and webhooks. Set `CRON_SECRET` in Vercel if it is not already set. Neither value belongs in a `NEXT_PUBLIC_` variable.
 3. For Walmart, set `WALMART_OWNER_ID` to the signed-in user's UUID shown in Integrations. This binds the shared Walmart credentials to their owner. Existing Walmart client ID/secret and Reports access are required. TikTok requires the existing connection and Finance permissions.
 4. Redeploy, open Integrations → Payout alerts, paste a Discord channel webhook, choose supported platforms, enable and save. Use **Send test notification**, then **Check now** to establish each platform's baseline.
@@ -27,7 +29,7 @@ References: [TikTok payments](https://partner.tiktokshop.com/docv2/page/get-paym
 Run [payout_notifications_fast.sql](../supabase/payout_notifications_fast.sql) once after the base migration. It installs Supabase Cron/pg_net/Vault support, private scheduler functions, and a private Walmart owner binding table. In Integrations:
 
 1. If Walmart is not linked, click **Link my Walmart account**, then select Walmart and save. In-app linking is allowed only when there is exactly one approved profile in the workspace. Existing Vercel `WALMART_OWNER_ID` takes precedence; multiple-owner workspaces must use that explicit setting.
-2. Click **Enable 1-minute checks**. The server uses the existing `CRON_SECRET` (minimum 16 characters) and Vercel's production hostname. If that automatic hostname is unavailable, set `PAYOUT_APP_URL` to the production HTTPS origin, for example `https://your-site.vercel.app`, and redeploy. No secret is entered into a browser or committed to SQL. The scheduler stores its URL and authorization token in Vault.
+2. Click **Start / repair automatic updates**. The server uses the existing `CRON_SECRET` (minimum 16 characters) and Vercel's production hostname. If that automatic hostname is unavailable, set `PAYOUT_APP_URL` to the production HTTPS origin, for example `https://your-site.vercel.app`, and redeploy. No secret is entered into a browser or committed to SQL. The scheduler stores its URL and authorization token in Vault.
 3. Click **Check now** once to establish the existing-payout baseline, and **Send test notification** to see the teal/lavender Soul embed in Discord.
 
 The scheduler runs through Supabase even when the site is closed and supports Vercel Hobby's restriction on native cron frequency. The existing daily Vercel cron remains a fallback. A single named Supabase job is updated on reconfiguration, not duplicated. Disable it in Supabase Cron if no longer needed; disabling notifications in the site immediately prevents subsequent checks from sending.
