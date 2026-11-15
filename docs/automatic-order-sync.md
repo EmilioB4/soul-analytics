@@ -1,6 +1,6 @@
 # Automatic recent-order imports
 
-Run `supabase/order_auto_sync.sql` once in Supabase SQL Editor. This installs private sync preferences, a per-owner/per-platform lease, and optional Supabase Cron/pg_net/Vault scheduling. In Integrations → Automatic order sync, select connected platforms and save. The server configures one five-minute scheduler job using the existing production URL and CRON_SECRET. It continues with the browser and laptop closed, including on Vercel Hobby.
+Run `supabase/automation_repair.sql` once in Supabase SQL Editor. The current one-click activation and delivery verification are documented in [automation-repair.md](automation-repair.md). This installs private sync preferences, a per-owner/per-platform lease, and optional Supabase Cron/pg_net/Vault scheduling. In Integrations → Automatic order sync, select connected platforms and save. The server configures one five-minute scheduler job using the existing production URL and CRON_SECRET. It continues with the browser and laptop closed, including on Vercel Hobby.
 
 Walmart must be linked to the owner under Payout alerts or assigned through WALMART_OWNER_ID. Whatnot requires the existing WHATNOT_OWNER_ID binding. TikTok uses the owner's OAuth connection. No client-supplied owner ID can enable or run another user's jobs.
 
