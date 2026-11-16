@@ -3,4 +3,4 @@ function setup(pages,{owner='owner',connected=true}={}){const calls=[];let index
 const payment=id=>({id,status:'PAID',amount:{currency:'USD',value:10},create_time:1794225600});
 test('TikTok payout check traverses every page before producing events',async()=>{const s=setup([{payments:[payment('p1')],next_page_token:'next'},{payments:[payment('p2')]}]);const result=await s.run('tiktok');assert.equal(result.length,2);assert.equal(s.calls[2].params.page_token,'next');});
 test('malformed and repeated pages fail rather than generate partial alerts',async()=>{for(const pages of [[{payments:[payment('p1')],next_page_token:'repeat'},{payments:[],next_page_token:'repeat'}],[{unexpected:[]}]]){await assert.rejects(setup(pages).run('tiktok'));}});
-test('Walmart credentials cannot be used by another app owner',async()=>{const s=setup([],{owner:'other-owner'});await assert.rejects(s.run('walmart'),/WALMART_OWNER_ID/);assert.equal(s.walmartCalls(),0);});
+test('Walmart credentials cannot be used by another app owner',async()=>{const s=setup([],{owner:'other-owner'});await assert.rejects(s.run('walmart'),/Connect your own Walmart account/);assert.equal(s.walmartCalls(),0);});
