@@ -10,7 +10,7 @@ export async function POST(req:NextRequest){
   if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
   const input=await req.json();const date=input.reportDate;
   if(typeof date!=='string'||!reportDate(date))return NextResponse.json({error:'Choose an available Walmart report date.'},{status:400});
-  const started=Date.now();const token=await walmartAccessToken();
+  const started=Date.now();const token=await walmartAccessToken(user.id);
   const available=await walmartReport('/v3/report/reconreport/availableReconFiles?reportVersion=v1',token);
   if(!Array.isArray(available.availableApReportDates)||!available.availableApReportDates.includes(date))return NextResponse.json({error:'This settlement report is not available for the connected Walmart account.'},{status:400});
   const rows:WalmartTransaction[]=[];let offset=0;const seen=new Set<number>();

@@ -10,7 +10,7 @@ export async function GET(req:NextRequest){
   if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
   const {error}=await db().from('walmart_settlement_reports').select('report_date').eq('owner_id',user.id).limit(1);
   if(error)throw Error('Settlement database setup is required: run supabase/walmart_settlements.sql in Supabase SQL Editor.');
-  const token=await walmartAccessToken();
+  const token=await walmartAccessToken(user.id);
   const data=await walmartReport('/v3/report/reconreport/availableReconFiles?reportVersion=v1',token);
   if(!Array.isArray(data.availableApReportDates))throw Error('Unrecognized Walmart report dates response. No settlement data changed.');
   const cutoff=new Date(Date.now()-120*86400000).toISOString().slice(0,10);

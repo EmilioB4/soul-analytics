@@ -1,8 +1,9 @@
 'use client';
 import TikTokLiveEfficiency from './TikTokLiveEfficiency';
-import {useCallback,useEffect,useState} from 'react';
+import {useCallback,useEffect,useRef,useState} from 'react';
 import {supabase} from './supabase';
 import AutomationStatus from './AutomationStatus';
+import WalmartConnection from './WalmartConnection';
 import AutomaticOrderSync from './AutomaticOrderSync';
 import PayoutNotifications from './PayoutNotifications';
 import WhatnotDashboard from './WhatnotDashboard';
@@ -85,6 +86,7 @@ function SalesChart({bins,period}:{bins:Analytics['bins'];period:Period}){
  </svg>:<div className="empty">No data for this period</div>}</div>;
 }
 export default function Home(){
+ const accountId=useRef<string|null>(null);
  const [email,setEmail]=useState(''),[password,setPassword]=useState('');
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[authorized,setAuthorized]=useState(false);
  const [tab,setTab]=useState<Tab>('combined'),[period,setPeriod]=useState<Period>('week');
@@ -139,8 +141,8 @@ export default function Home(){
  useEffect(()=>{if(!authorized||tab!=='combined'||!supabase)return;let canceled=false;setWhatnotLoaded(false);(async()=>{try{const {data}=await supabase.auth.getSession();if(!data.session)return;const res=await fetch('/api/whatnot/finance',{headers:{Authorization:`Bearer ${data.session.access_token}`},cache:'no-store'});if(res.ok){const j=await res.json();if(!canceled){setWhatnotFinance(j);setWhatnotLoaded(true);}}}catch{}})();return()=>{canceled=true};},[authorized,tab]);
 
  useEffect(()=>{const params=new URLSearchParams(window.location.search);if(params.get('plaid')){setTab('payouts');window.history.replaceState(null,'',window.location.pathname);return;}const status=params.get('tiktok');if(!status)return;const msgs:Record<string,string>={connected:'TikTok authorization saved successfully.','authorization-session-missing':'Authorization session expired. Reauthorize from the dashboard.','authorization-state-mismatch':'Security verification failed. Please try again.','seller-account-mismatch':'Seller account does not match the existing connection.','token-exchange-failed':'TikTok token exchange failed.','storage-failed':'Could not store authorization.'};setTiktokMessage(msgs[status]||'TikTok authorization was not completed.');window.history.replaceState(null,'',window.location.pathname);},[]);
- async function check(){if(!supabase){setMessage('Supabase variables are not configured.');setLoading(false);return;}const {data:{user}}=await supabase.auth.getUser();if(!user){setAuthorized(false);setLoading(false);return;}const {data,error}=await supabase.from('profiles').select('user_id').eq('user_id',user.id).maybeSingle();setAuthorized(!!data&&!error);if(!data)setMessage('Owner access has not been activated.');setLoading(false)}
- useEffect(()=>{check();if(!supabase)return;const {data:{subscription}}=supabase.auth.onAuthStateChange(()=>{setTimeout(check,0)});return()=>subscription.unsubscribe()},[]);
+ async function check(){if(!supabase){setMessage('Supabase variables are not configured.');setLoading(false);return;}const {data:{user}}=await supabase.auth.getUser();if(!user){setAuthorized(false);setLoading(false);return;}if(accountId.current&&accountId.current!==user.id){window.location.reload();return;}accountId.current=user.id;const {data,error}=await supabase.from('profiles').select('user_id').eq('user_id',user.id).maybeSingle();setAuthorized(!!data&&!error);if(!data)setMessage('Your account has not been invited to this workspace yet.');setLoading(false)}
+ useEffect(()=>{check();if(!supabase)return;const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{if(accountId.current&&session?.user.id&&session.user.id!==accountId.current){setAuthorized(false);window.location.reload();return;}if(event==='SIGNED_OUT'){window.location.reload();return;}setTimeout(check,0)});return()=>subscription.unsubscribe()},[]);
  async function login(e:React.FormEvent){e.preventDefault();if(!supabase)return;setBusy(true);setMessage('');const {error}=await supabase.auth.signInWithPassword({email,password});if(error)setMessage(error.message);setBusy(false)}
  async function reset(){if(!supabase||!email){setMessage('Enter your email first.');return;}setBusy(true);const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+'/auth/update-password'});setMessage(error?error.message:'If registered, a password reset email has been sent.');setBusy(false)}
  async function logout(){await supabase?.auth.signOut();setAuthorized(false)}
@@ -252,6 +254,7 @@ export default function Home(){
    </section>
    <section className="surface" style={{padding:'22px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:15,flexWrap:'wrap'}}><div><div className="eyebrow">PRODUCT MANAGEMENT</div><h2 style={{margin:'6px 0'}}>Need to change a product cost?</h2><p className="muted" style={{margin:0}}>Edit SKU COGS, purchase batches, and individual orders in Products &amp; COGS.</p></div><button className="outlineBtn" onClick={()=>setTab('products')}>Open Products &amp; COGS →</button></section>
   </>}
+ {tab==='settings'&&<WalmartConnection/>}
  {tab==='settings'&&<AutomationStatus/>}
  {tab==='settings'&&<AutomaticOrderSync/>}
  {tab==='settings'&&<PayoutNotifications/>}

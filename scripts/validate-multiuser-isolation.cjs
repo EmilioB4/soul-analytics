@@ -1,0 +1,35 @@
+// Runs entirely in an in-memory PostgreSQL instance. Never connects to Supabase.
+const {PGlite}=require(process.env.PGLITE_MODULE || '@electric-sql/pglite');
+const fs=require('fs'),assert=require('assert/strict');
+(async()=>{const db=new PGlite();await db.exec(`
+create role anon;create role authenticated;create role service_role bypassrls;
+create schema auth;create table auth.users(id uuid primary key);
+create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+grant usage on schema public,auth to authenticated,anon,service_role;grant execute on function auth.uid() to authenticated;
+create table public.profiles(user_id uuid primary key references auth.users(id));
+grant all on public.profiles to public;
+create table public.order_auto_syncs(owner_id uuid,enabled boolean);
+create table public.walmart_sales(owner_id uuid,amount numeric);
+grant all on public.walmart_sales to authenticated;
+create policy old_permissive_policy on public.walmart_sales for all to authenticated using(true) with check(true);
+create table public.payout_alert_settings(owner_id uuid,webhook_encrypted text,enabled boolean default true);
+grant all on public.payout_alert_settings to authenticated;
+create policy old_credentials_policy on public.payout_alert_settings for all to authenticated using(true) with check(true);
+insert into auth.users values ('00000000-0000-0000-0000-000000000001'),('00000000-0000-0000-0000-000000000002'),('00000000-0000-0000-0000-000000000003');
+insert into profiles select id from auth.users where id<>'00000000-0000-0000-0000-000000000003';
+insert into walmart_sales values ('00000000-0000-0000-0000-000000000001',111),('00000000-0000-0000-0000-000000000002',222);
+insert into payout_alert_settings values ('00000000-0000-0000-0000-000000000001','private',true);
+`);
+const sql=fs.readFileSync(require('path').join(__dirname,'../supabase/multiuser_foundation.sql'),'utf8');await db.exec(sql);await db.exec(sql);
+await db.exec(`set role authenticated;set request.jwt.claim.sub='00000000-0000-0000-0000-000000000001'`);
+assert.equal((await db.query('select * from profiles')).rows.length,1);assert.equal(Number((await db.query('select amount from walmart_sales')).rows[0].amount),111);
+await assert.rejects(db.query("insert into walmart_sales values ('00000000-0000-0000-0000-000000000002',333)"));
+await assert.rejects(db.query('truncate walmart_sales'));await assert.rejects(db.query('select * from walmart_connections'));await assert.rejects(db.query('select * from payout_alert_settings'));await assert.rejects(db.query("insert into profiles values ('00000000-0000-0000-0000-000000000003')"));
+await db.exec(`set request.jwt.claim.sub='00000000-0000-0000-0000-000000000002'`);assert.equal(Number((await db.query('select amount from walmart_sales')).rows[0].amount),222);
+await db.exec(`set request.jwt.claim.sub='00000000-0000-0000-0000-000000000003'`);assert.equal((await db.query('select * from walmart_sales')).rows.length,0);
+await db.exec('reset role');assert.equal((await db.query('select * from payout_alert_settings')).rows[0].webhook_encrypted,'private',true);assert.equal((await db.query('select * from walmart_sales')).rows.length,2);
+await db.exec(`insert into walmart_connections values ('00000000-0000-0000-0000-000000000001','fp','encrypted-id','encrypted-secret',now())`);
+await assert.rejects(db.exec(`insert into walmart_connections values ('00000000-0000-0000-0000-000000000002','fp','other','other',now())`));
+await assert.rejects(db.exec(`update walmart_connections set client_fingerprint='changed'`));await db.exec(`update walmart_connections set client_secret_encrypted='rotated'`);
+await db.exec(`insert into order_auto_syncs values ('00000000-0000-0000-0000-000000000001',true);delete from profiles where user_id='00000000-0000-0000-0000-000000000001'`);assert.equal((await db.query('select enabled from order_auto_syncs')).rows[0].enabled,false);assert.equal((await db.query('select enabled from payout_alert_settings')).rows[0].enabled,false);
+console.log('Migration passed: idempotence, preserved existing rows, two-user read/write isolation despite permissive old policy, unadmitted user blocked, credential reads denied, profile self-admission denied, duplicate credentials and account switching blocked, secret rotation allowed.');await db.close();})().catch(e=>{console.error(e);process.exit(1)});

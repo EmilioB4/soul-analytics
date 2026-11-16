@@ -13,7 +13,7 @@ export async function POST(req:NextRequest){try{
  const user=await owner(req.headers.get('authorization'));if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
  const body=await req.json(),platforms=['tiktok','walmart','whatnot'] as const;
  if(!body.enabled||typeof body.enabled!=='object'||platforms.some(p=>typeof body.enabled[p]!=='boolean'))return NextResponse.json({error:'Choose valid platform preferences.'},{status:400});
- if(body.enabled.walmart&&!await walmartPayoutOwnerMatches(user.id))return NextResponse.json({error:'Link your Walmart account under Payout alerts first.'},{status:409});
+ if(body.enabled.walmart&&!await walmartPayoutOwnerMatches(user.id))return NextResponse.json({error:'Connect your own Walmart account in Connections & settings first.'},{status:409});
  if(body.enabled.whatnot&&process.env.WHATNOT_OWNER_ID!==user.id)return NextResponse.json({error:'Configure WHATNOT_OWNER_ID for your connected Whatnot account in Vercel first.'},{status:409});
  const client=db();if(platforms.some(p=>body.enabled[p])){
   await configureAutomation();

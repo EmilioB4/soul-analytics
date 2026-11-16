@@ -1,6 +1,6 @@
-export async function walmartAccessToken(){
- const id=process.env.WALMART_CLIENT_ID,secret=process.env.WALMART_CLIENT_SECRET;
- if(!id||!secret)throw Error('Missing WALMART_CLIENT_ID or WALMART_CLIENT_SECRET in Vercel.');
+import {walmartCredentials} from './walmart-connections';
+export async function walmartAccessToken(ownerId:string){
+ const {id,secret}=await walmartCredentials(ownerId);
  const response=await fetch('https://marketplace.walmartapis.com/v3/token',{method:'POST',headers:{Authorization:'Basic '+Buffer.from(`${id}:${secret}`).toString('base64'),Accept:'application/json','Content-Type':'application/x-www-form-urlencoded','WM_SVC.NAME':'Walmart Marketplace','WM_QOS.CORRELATION_ID':crypto.randomUUID()},body:'grant_type=client_credentials',cache:'no-store',signal:AbortSignal.timeout(15000)});
  const data=await response.json();
  if(!response.ok)throw Error(`Walmart authentication HTTP ${response.status}.`);
