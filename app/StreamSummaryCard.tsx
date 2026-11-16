@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState} from 'react';
 
 type TopProduct={skuId:string;name:string;image:string|null;quantity:number;profit:number};
-type CardData={start:string;end:string;total:number;paidOrders:number;unitsSold:number;topSellers:{name:string;quantity:number;sales:number;image:string|null}[];topProfitItems?:TopProduct[];profitEstimate?:{profit:number|null;partial:boolean;unpricedSkuCount:number;shippingMissingOrders:number};payoutEstimate?:{expected:number;assumedFee:number;recordedShipping:number;missingShippingOrders:number;settledOrderAmount:number|null;settledOrderCount:number;unsettledOrderCount:number;actualBankPayout:number|null;partial:boolean};limited:boolean};
+export type CardData={summary?:{title:string;subtitle:string;salesLabel:string;profitLabel:string;footer:string;filenamePrefix:string};start:string;end:string;total:number;paidOrders:number;unitsSold:number;topSellers:{name:string;quantity:number;sales:number;image:string|null}[];topProfitItems?:TopProduct[];profitEstimate?:{profit:number|null;partial:boolean;unpricedSkuCount:number;shippingMissingOrders:number};payoutEstimate?:{expected:number;assumedFee:number;recordedShipping:number;missingShippingOrders:number;settledOrderAmount:number|null;settledOrderCount:number;unsettledOrderCount:number;actualBankPayout:number|null;partial:boolean};limited:boolean};
 type Theme={id:string;label:string;color:string;soft:string};
 const THEMES:Theme[]=[
  {id:'iris',label:'Iris',color:'#B38BFF',soft:'#7757D6'},
@@ -27,10 +27,11 @@ function draw(ctx:CanvasRenderingContext2D,data:CardData,theme:Theme,logo:HTMLIm
  if(logo){const aspect=logo.width/logo.height;const w=243,h=w/aspect;ctx.drawImage(logo,78,55,w,h)}else txt(ctx,'SOUL ANALYTICS',82,108,29);
  const range=data.start===data.end?date(data.start):`${date(data.start)} — ${date(data.end)}`;
  txt(ctx,range,1514,98,24,'#AEB3C0',500,'right');
- txt(ctx,'Stream Summary',80,259,78,'#F9FAFB',750);
+ txt(ctx,data.summary?.title||'Stream Summary',80,259,78,'#F9FAFB',750);
+ if(data.summary?.subtitle)txt(ctx,data.summary.subtitle,80,300,21,'#AEB3C0',500);
  const metrics=[
-  {label:'GROSS SALES',value:usd(data.total)},
-  {label:'EST. PROFIT',value:data.profitEstimate?.profit==null?'—':usd(data.profitEstimate.profit)},
+  {label:data.summary?.salesLabel||'GROSS SALES',value:usd(data.total)},
+  {label:data.summary?.profitLabel||'EST. PROFIT',value:data.profitEstimate?.profit==null?'—':usd(data.profitEstimate.profit)},
   {label:'ORDERS',value:String(data.paidOrders)},
   {label:'UNITS SOLD',value:String(data.unitsSold)}
  ];
@@ -48,11 +49,12 @@ function draw(ctx:CanvasRenderingContext2D,data:CardData,theme:Theme,logo:HTMLIm
   const img=images[i];const ix=148,iy=y,box=66;ctx.fillStyle='#222631';ctx.beginPath();ctx.roundRect(ix,iy,box,box,12);ctx.fill();
   if(img){ctx.save();ctx.beginPath();ctx.roundRect(ix,iy,box,box,12);ctx.clip();const scale=Math.min(box/img.width,box/img.height);const w=img.width*scale,h=img.height*scale;ctx.drawImage(img,ix+(box-w)/2,iy+(box-h)/2,w,h);ctx.restore()}
   txt(ctx,fit(ctx,p.name,1020,25),238,y+28,25,'#F4F5F8',600);
-  txt(ctx,`${p.quantity.toLocaleString('en-US')} units sold`,238,y+57,20,'#A9B0BE');
+  txt(ctx,`${p.quantity.toLocaleString('en-US')} ${p.quantity===1?'unit':'units'} sold`,238,y+57,20,'#A9B0BE');
   txt(ctx,usd(p.profit),1515,y+40,32,'#F7F8FA',700,'right');
  }
  txt(ctx,'SOUL ANALYTICS',80,861,18,'#9A9FAC',600);
- if(data.profitEstimate?.partial)txt(ctx,'Estimated profit · Some costs unavailable',1515,862,17,'#9298A7',400,'right');
+ if(data.summary?.footer)txt(ctx,fit(ctx,data.summary.footer,1130,17),1515,862,17,'#9298A7',400,'right');
+ else if(data.profitEstimate?.partial)txt(ctx,'Estimated profit · Some costs unavailable',1515,862,17,'#9298A7',400,'right');
  else txt(ctx,'Estimated profit before product-level shipping allocation',1515,862,17,'#9298A7',400,'right');
 }
 export default function StreamSummaryCard({data,loading,onClose}:{data:CardData|null;loading:boolean;onClose:()=>void}){
@@ -64,11 +66,11 @@ export default function StreamSummaryCard({data,loading,onClose}:{data:CardData|
  useEffect(()=>{let active=true;setReady(false);if(!data)return;const canvas=canvasRef.current,ctx=canvas?.getContext('2d');if(!ctx)return;
  const load=(src:string,cross=false)=>new Promise<HTMLImageElement|null>(resolve=>{const img=new Image();if(cross)img.crossOrigin='anonymous';img.onload=()=>resolve(img);img.onerror=()=>resolve(null);img.src=src});
  (async()=>{const [logo,...images]=await Promise.all([load('/soul-wordmark-transparent.png'),...(data.topProfitItems||[]).slice(0,3).map(p=>p.image?load(p.image,true):Promise.resolve(null))]);try{await Promise.all([document.fonts.load('700 78px Inter'),document.fonts.load('600 25px Inter')])}catch{}if(!active)return;try{draw(ctx,data,theme,logo,images);setReady(true);setError('')}catch{setError('Could not render summary image.')}})();return()=>{active=false}},[data,themeId,custom]);
- function download(){const c=canvasRef.current;if(!c||!ready||!data)return;try{c.toBlob(blob=>{if(!blob){setError('Unable to export PNG.');return}const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`soul-summary-${data.start}${data.start===data.end?'':`-to-${data.end}`}.png`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000)},'image/png')}catch{setError('Image export failed. Check product image permissions.')}}
+ function download(){const c=canvasRef.current;if(!c||!ready||!data)return;try{c.toBlob(blob=>{if(!blob){setError('Unable to export PNG.');return}const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`${data.summary?.filenamePrefix||'soul-summary'}-${data.start}${data.start===data.end?'':`-to-${data.end}`}.png`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000)},'image/png')}catch{setError('Image export failed. Check product image permissions.')}}
  return <div className="shareModalBackdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
  <section className="shareModal" role="dialog" aria-modal="true" aria-labelledby="shareModalTitle">
-  <div className="shareModalHeader"><div><h2 id="shareModalTitle">Share PNL</h2><p>Choose a Soul theme, then download your summary</p></div><button type="button" className="shareModalClose" onClick={onClose} aria-label="Close summary">×</button></div>
-  <div className="shareModalImage"><canvas ref={canvasRef} width={1600} height={900} role="img" aria-label="Stream Summary image preview"/></div>
+  <div className="shareModalHeader"><div><h2 id="shareModalTitle">{data?.summary?'Share Walmart PNL':'Share PNL'}</h2><p>Choose a Soul theme, then download your summary</p></div><button type="button" className="shareModalClose" onClick={onClose} aria-label="Close summary">×</button></div>
+  <div className="shareModalImage"><canvas ref={canvasRef} width={1600} height={900} role="img" aria-label={`${data?.summary?.title||'Stream Summary'} image preview`}/></div>
   <div style={{padding:'14px 2px 5px'}}><div style={{fontSize:11,fontWeight:700,letterSpacing:'1.3px',opacity:.72,marginBottom:10}}>TEMPLATE THEME</div>
    <div style={{display:'flex',gap:9,flexWrap:'wrap'}}>
     {THEMES.map(t=><button key={t.id} type="button" aria-pressed={themeId===t.id} onClick={()=>setThemeId(t.id)} style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',borderRadius:10,border:themeId===t.id?`1px solid ${t.color}`:'1px solid rgba(155,160,175,.24)',background:themeId===t.id?rgba(t.color,.12):'rgba(130,140,165,.05)',color:'inherit',fontSize:12,fontWeight:600,cursor:'pointer'}}><span style={{display:'inline-block',width:14,height:14,borderRadius:'50%',background:t.color,boxShadow:themeId===t.id?`0 0 10px ${rgba(t.color,.5)}`:'none'}}/>{t.label}</button>)}
