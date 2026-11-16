@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:isolation": "node scripts/validate-multiuser-isolation.cjs"
+    "test:isolation": "node scripts/validate-multiuser-isolation.cjs",
+    "test:walmart-setup": "node scripts/build-walmart-setup.cjs --check && node scripts/validate-walmart-setup.cjs"
   },
   "dependencies": {
     "next": "^15.3.0",

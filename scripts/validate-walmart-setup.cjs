@@ -1,0 +1,43 @@
+// Isolated synthetic PostgreSQL only; never connects to a hosted database.
+const {PGlite}=require(process.env.PGLITE_MODULE||'@electric-sql/pglite');
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+(async()=>{
+ const db=new PGlite();await db.exec(`
+ create role anon;create role authenticated;create role service_role bypassrls;
+ create schema auth;create table auth.users(id uuid primary key);
+ create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+ grant usage on schema auth,public to authenticated,anon,service_role;
+ grant execute on function auth.uid() to authenticated;
+ create table profiles(user_id uuid primary key references auth.users(id));
+ insert into auth.users values ('00000000-0000-0000-0000-000000000001'),('00000000-0000-0000-0000-000000000002');
+ insert into profiles select id from auth.users;
+ `);
+ const sql=fs.readFileSync(path.join(__dirname,'../supabase/walmart_test_setup.sql'),'utf8');await db.exec(sql);
+ await db.exec(`insert into walmart_connections values ('00000000-0000-0000-0000-000000000001','test-fingerprint','encrypted-id','encrypted-secret',now());
+ insert into walmart_sales values ('00000000-0000-0000-0000-000000000001','same-order','1',now(),'sku','First seller','WFS',2,20),('00000000-0000-0000-0000-000000000002','same-order','1',now(),'sku','Second seller','SF',1,9);
+ insert into walmart_fees values ('00000000-0000-0000-0000-000000000001','same-fee',current_date,null,null,'fee',2),('00000000-0000-0000-0000-000000000002','same-fee',current_date,null,null,'fee',1);`);
+ await db.exec(sql);
+ assert.equal((await db.query('select * from profiles')).rows.length,2);
+ assert.equal((await db.query('select * from walmart_sales')).rows.length,2);
+ assert.equal((await db.query('select client_secret_encrypted from walmart_connections')).rows[0].client_secret_encrypted,'encrypted-secret');
+ await db.exec(`set role authenticated;set request.jwt.claim.sub='00000000-0000-0000-0000-000000000001'`);
+ assert.equal((await db.query('select product_name from walmart_sales')).rows[0].product_name,'First seller');
+ assert.equal((await db.query('select * from walmart_fees')).rows.length,1);
+ await db.exec(`insert into walmart_product_costs values ('00000000-0000-0000-0000-000000000001','sku',3.1250)`);
+ await assert.rejects(db.exec(`insert into walmart_product_costs values ('00000000-0000-0000-0000-000000000002','sku',10)`));
+ await assert.rejects(db.exec('truncate walmart_sales'));
+ await assert.rejects(db.query('select * from walmart_connections'));
+ await assert.rejects(db.exec(`select save_walmart_inventory('00000000-0000-0000-0000-000000000002','[]'::jsonb,'unauthorized',null)`));
+ await assert.rejects(db.exec(`select replace_walmart_settlement_report('00000000-0000-0000-0000-000000000002','test','[]'::jsonb)`));
+ await db.exec(`set request.jwt.claim.sub='00000000-0000-0000-0000-000000000002'`);
+ assert.equal((await db.query('select product_name from walmart_sales')).rows[0].product_name,'Second seller');
+ assert.equal((await db.query('select * from walmart_product_costs')).rows.length,0);
+ await db.exec('reset role');
+ await db.exec(`set role service_role;select save_walmart_inventory('00000000-0000-0000-0000-000000000001','[{"id":"lot","sku":"sku","name":"Test item","qty":2,"sold":0,"left":2}]'::jsonb,'setup-test',null)`);
+ assert.equal((await db.query('select * from walmart_inventory_lots')).rows.length,1);
+ assert.equal((await db.query('select * from walmart_inventory_history')).rows.length,1);
+ await db.exec(`reset role;set role authenticated;set request.jwt.claim.sub='00000000-0000-0000-0000-000000000002'`);
+ assert.equal((await db.query('select * from walmart_inventory_lots')).rows.length,0);
+ assert.equal((await db.query('select * from walmart_inventory_history')).rows.length,0);
+ await db.close();console.log('Walmart setup passed: fresh install, rerun preservation, per-user sales/fees/costs/inventory isolation, encrypted credential privacy, denied TRUNCATE and protected RPCs.');
+})().catch(e=>{console.error(e);process.exit(1)});
