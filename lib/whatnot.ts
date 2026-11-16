@@ -1,7 +1,7 @@
 import {db} from './tiktok';
 
 const BASE='https://api.whatnot.com/seller-api/rest/v2';
-export function configured(){return Boolean(process.env.WHATNOT_API_TOKEN?.trim());}
+export function configured(ownerId?:string){return Boolean(ownerId&&process.env.WHATNOT_OWNER_ID===ownerId&&process.env.WHATNOT_API_TOKEN?.trim());}
 function record(v:unknown):Record<string,unknown>{return v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};}
 // Financial fields stay available while obvious customer/shipping PII is excluded.
 function scrub(value:unknown):unknown{
@@ -76,6 +76,7 @@ export function nextCursor(v:unknown){const o=record(v),d=record(o.data),page=re
  return textValue(o.next_cursor)||textValue(o.next_page_token)||textValue(d.next_cursor)||textValue(d.next_page_token)||textValue(page.next_cursor)||textValue(page.next_page_token)||textValue(dp.next_cursor)||textValue(dp.next_page_token);
 }
 export async function importWhatnot(ownerId:string){
+ if(process.env.WHATNOT_OWNER_ID!==ownerId)throw Error("This Whatnot connection is not assigned to your account.");
  const client=db();let ordersCount=0,showsCount=0,orderPages=0,showPages=0;let incomplete=false;
  // The provider may return more than one page. Bound each invocation to avoid long Vercel executions.
  for(const kind of ['orders','shows'] as const){

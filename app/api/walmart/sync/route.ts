@@ -1,3 +1,4 @@
+import {walmartAccessToken} from '../../../../lib/walmart-api';
 import {NextRequest,NextResponse} from 'next/server';
 import {syncRequestOwner} from '../../../../lib/order-sync-auth';
 import {db} from '../../../../lib/tiktok';
@@ -15,13 +16,7 @@ export async function POST(req:NextRequest){
  try{
   const user=await syncRequestOwner(req,'walmart');
   if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
-  const id=process.env.WALMART_CLIENT_ID,secret=process.env.WALMART_CLIENT_SECRET;
-  if(!id||!secret)return NextResponse.json({error:'Missing WALMART_CLIENT_ID or WALMART_CLIENT_SECRET in Vercel.'},{status:503});
-  const tokenRes=await fetch('https://marketplace.walmartapis.com/v3/token',{method:'POST',headers:{Authorization:'Basic '+Buffer.from(`${id}:${secret}`).toString('base64'),Accept:'application/json','Content-Type':'application/x-www-form-urlencoded','WM_SVC.NAME':'Walmart Marketplace','WM_QOS.CORRELATION_ID':crypto.randomUUID()},body:'grant_type=client_credentials',cache:'no-store'});
-  const tokenBody:unknown=await tokenRes.json().catch(()=>({message:'Unparseable token response'}));
-  if(!tokenRes.ok)return NextResponse.json({error:`Walmart authentication HTTP ${tokenRes.status}: ${errorText(tokenBody)}`},{status:502});
-  const token=str(obj(tokenBody).access_token||obj(obj(obj(tokenBody).clientCredentialsRes).value).access_token);
-  if(!token)return NextResponse.json({error:`Walmart authentication returned no access token. Response fields: ${Object.keys(obj(tokenBody)).join(', ')}`},{status:502});
+  const token=await walmartAccessToken(user.id);
   const input=await req.json().catch(()=>({}));const validDate=(x:unknown)=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x))&&new Date(x).toISOString().slice(0,10)===x;
   if((input.startDate&&!validDate(input.startDate))||(input.endDate&&!validDate(input.endDate))||(input.startDate&&input.endDate&&input.startDate>input.endDate))return NextResponse.json({error:'Invalid sync date range.'},{status:400});
   const since=input.startDate?newYorkMidnight(input.startDate):new Date(Date.now()-89*86400000).toISOString();
