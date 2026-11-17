@@ -4,6 +4,7 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 import {supabase} from './supabase';
 import AutomationStatus from './AutomationStatus';
 import WalmartConnection from './WalmartConnection';
+import WalmartSaleAlerts from './WalmartSaleAlerts';
 import AccountLogin from './AccountLogin';
 import {createAccessGuard} from '../lib/account-access';
 import AutomaticOrderSync from './AutomaticOrderSync';
@@ -280,6 +281,7 @@ export default function Home(){
   </>}
  {tab==='settings'&&newAccount&&<section className="surface settingsPanel"><div className="eyebrow">WELCOME TO SOUL</div><h2>Your dashboard is ready</h2><p className="muted">Start by connecting your Walmart account below. Then enable Automatic updates to import your orders. Your dashboard shows only your own account data.</p><button className="outlineBtn" onClick={()=>setNewAccount(false)}>Got it</button></section>}
  {tab==='settings'&&<WalmartConnection/>}
+ {tab==='settings'&&<WalmartSaleAlerts/>}
  {tab==='settings'&&<AutomationStatus/>}
  {tab==='settings'&&<AutomaticOrderSync/>}
  {tab==='settings'&&<PayoutNotifications/>}
