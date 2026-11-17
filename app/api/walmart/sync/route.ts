@@ -1,3 +1,4 @@
+import {saleTimestamp,saleImage,type WalmartSaleEvent} from '../../../../lib/walmart-sale-message';
 import {walmartAccessToken} from '../../../../lib/walmart-api';
 import {NextRequest,NextResponse} from 'next/server';
 import {syncRequestOwner} from '../../../../lib/order-sync-auth';
@@ -16,13 +17,13 @@ export async function POST(req:NextRequest){
  try{
   const user=await syncRequestOwner(req,'walmart');
   if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
-  const token=await walmartAccessToken(user.id);
+  const deadline=Date.now()+45000;const token=await walmartAccessToken(user.id);
   const input=await req.json().catch(()=>({}));const validDate=(x:unknown)=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x))&&new Date(x).toISOString().slice(0,10)===x;
   if((input.startDate&&!validDate(input.startDate))||(input.endDate&&!validDate(input.endDate))||(input.startDate&&input.endDate&&input.startDate>input.endDate))return NextResponse.json({error:'Invalid sync date range.'},{status:400});
   const since=input.startDate?newYorkMidnight(input.startDate):new Date(Date.now()-89*86400000).toISOString();
   const dayAfter=input.endDate?new Date(Date.parse(input.endDate)+86400000).toISOString().slice(0,10):null;const until=dayAfter?new Date(Date.parse(newYorkMidnight(dayAfter))-1).toISOString():null;
   const diagnostics:{dateRange:string;pages:number;responseShapes:string[];rawOrders:number;skippedOrders:number;skippedLines:number;nextCursorPresent:boolean}={dateRange:`${since} to ${until||'now'}`,pages:0,responseShapes:[],rawOrders:0,skippedOrders:0,skippedLines:0,nextCursorPresent:false};
-  const rows:Obj[]=[];
+  const rows:Obj[]=[];const saleCandidates:WalmartSaleEvent[]=[];
   const fulfillmentCounts:Record<string,number>={};
   let incomplete=false;
   for(const shipNodeType of ['SellerFulfilled','WFSFulfilled'] as const){
@@ -30,7 +31,8 @@ export async function POST(req:NextRequest){
   fulfillmentCounts[shipNodeType]=0;
   for(let page=0;page<15;page++){
    const url=walmartOrdersUrl(since,cursor,shipNodeType);if(!cursor&&until)url.searchParams.set('createdEndDate',until);
-   const res=await fetch(url.toString(),{headers:{'WM_SEC.ACCESS_TOKEN':token,'WM_SVC.NAME':'Walmart Marketplace','WM_QOS.CORRELATION_ID':crypto.randomUUID(),Accept:'application/json'},cache:'no-store'});
+   if(Date.now()>=deadline)throw Error('Walmart order check exceeded its time budget; retry.');
+   const res=await fetch(url.toString(),{signal:AbortSignal.timeout(Math.max(1,Math.min(15000,deadline-Date.now()))),headers:{'WM_SEC.ACCESS_TOKEN':token,'WM_SVC.NAME':'Walmart Marketplace','WM_QOS.CORRELATION_ID':crypto.randomUUID(),Accept:'application/json'},cache:'no-store'});
    const body:unknown=await res.json().catch(async()=>({raw:(await res.text().catch(()=>'' )).slice(0,400)}));
    if(!res.ok)return NextResponse.json({error:`Walmart orders HTTP ${res.status}: ${errorText(body)}`,diagnostics},{status:502});
    diagnostics.pages++;
@@ -56,6 +58,7 @@ export async function POST(req:NextRequest){
      const method=str(obj(order.shipNode).type||order.fulfillmentMethod||line.fulfillmentMethod||obj(order.shippingInfo).fulfillmentMethod||obj(order.shippingInfo).fulfillmentType||shipNodeType).toUpperCase();
      const fulfillment=method.includes('WFS')||method.includes('WALMART')?'WFS':method.includes('SELLER')?'SF':'Unknown';
      rows.push({owner_id:user.id,order_id:po,line_id:str(line.lineNumber??index+1),order_date:date,sku:str(item.sku||line.sku||'UNKNOWN'),product_name:str(item.productName||item.sku||'Unknown product'),fulfillment,quantity:qty,revenue:price});
+     if(req.headers.get('x-soul-sales-lease'))saleCandidates.push({order_id:po,line_id:str(line.lineNumber??index+1),sku:str(item.sku||line.sku||'UNKNOWN'),product_name:str(item.productName||item.sku||'Unknown product'),quantity:qty,revenue:price,fulfillment,sold_at:saleTimestamp(order.orderDate??order.createdDate),image:saleImage(item.imageUrl||item.primaryImageUrl)});
     }
    }
    const meta=obj(list.meta??root.meta);
@@ -73,6 +76,6 @@ export async function POST(req:NextRequest){
   if(rows.length===0)return NextResponse.json({orders:diagnostics.rawOrders,lines:0,feeSync:false,warning:'Walmart returned orders, but none produced importable lines. See diagnostics.',diagnostics:syncDiagnostics});
   const database=db();
   for(let i=0;i<rows.length;i+=200){const {error}=await database.from('walmart_sales').upsert(rows.slice(i,i+200),{onConflict:'owner_id,order_id,line_id'});if(error)throw Error(`Walmart database save failed: ${error.message}`);}
-  return NextResponse.json({orders:diagnostics.rawOrders,lines:rows.length,feeSync:false,diagnostics:syncDiagnostics,...(incomplete?{warning:'Reached the 15-page limit for a fulfillment type. More Walmart orders remain; the import is incomplete.'}:{}),note:'WFS settlement fees are not imported by this endpoint.'});
+  return NextResponse.json({...(req.headers.get('x-soul-sales-lease')?{saleCandidates}:{}),orders:diagnostics.rawOrders,lines:rows.length,feeSync:false,diagnostics:syncDiagnostics,...(incomplete?{warning:'Reached the 15-page limit for a fulfillment type. More Walmart orders remain; the import is incomplete.'}:{}),note:'WFS settlement fees are not imported by this endpoint.'});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Walmart sync failed'},{status:502});}
 }

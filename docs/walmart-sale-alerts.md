@@ -1,0 +1,23 @@
+# Automatic Walmart sale alerts
+
+This is server-side polling, not a Walmart push subscription. The shared scheduler runs every minute with the site/computer closed. Walmart reporting may lag. Up to three account checks run per scheduler tick; each sends up to three queued order-line alerts. More users, rate limits or backlogs require additional ticks. Do not advertise guaranteed instant delivery.
+
+## One-time setup on the testing project
+
+1. Merge/deploy this change. In the TESTING Supabase SQL Editor, run the entire `supabase/walmart_sale_alerts.sql` after the Walmart database setup already installed. This creates the scheduler extension configuration, private preferences and durable outbox. It preserves existing orders and users, and is safe to rerun.
+2. In the TESTING Vercel project, ensure `CRON_SECRET` is a private random value of at least 16 characters (32+ recommended), then redeploy if added/changed. Reuse the testing project's current secret if present; don't change the original project's secret. Keep `TIKTOK_TOKEN_ENCRYPTION_KEY` unchanged. The existing encryption key protects saved Discord URLs as well.
+3. The server obtains its trusted site origin from `PAYOUT_APP_URL` or Vercel's `VERCEL_PROJECT_PRODUCTION_URL`. If needed, set PAYOUT_APP_URL to the testing site's HTTPS origin (no path/query) and redeploy. If deployment protection blocks scheduler requests, configure VERCEL_AUTOMATION_BYPASS_SECRET on the server and save preferences again.
+4. Each signed-in user connects their own Walmart account, opens Connections & settings → Automatic sale notifications, pastes their own Discord webhook, checks Enable automatic Walmart sale alerts, and saves. They can reuse their payout webhook or choose a separate channel. Saving configures the shared minute schedule and queues a real pg_net HTTP request. No Check now button or open browser is required.
+5. Wait for Last successful order check and inspect any background HTTP/connection error. Then test a genuinely new Walmart sale with that user's account. Existing orders placed before activation are recorded silently; new lines with an exact placement timestamp at or after activation can alert even on the first check. Order lines lacking an exact timestamp are conservatively treated as historical. A successful test with real provider credentials is required to verify hosted scheduling and Discord delivery.
+
+## Content and delivery
+
+Each message includes product name, line sale total, quantity, unit price, fulfillment, SKU and order ID. The total is merchandise revenue, before fees, tax and shipping; it is not profit. Available Walmart-hosted images are allowed; known bundled LEGO images are used as a fallback. The channel gets no buyer name, address, email, bank data or API secrets. Discord mentions are suppressed. One event per owner/order/line prevents repeats from syncing, backfills or overlapping jobs. Later cancellations/quantity edits are not a second sale alert.
+
+Preferences and outbox tables are server-only with RLS and browser access revoked. APIs derive the user from their verified session; supplied owner IDs are ignored. Scheduled order imports require CRON_SECRET plus a valid owner-specific sale-check lease. The worker checks admission and uses that owner's Walmart credentials and webhook. Disabled or revoked accounts cannot claim deliveries.
+
+Queued alerts drain before another source poll, so slow Walmart responses cannot indefinitely block already observed sales. Rate-limit/service failures retry with backoff (up to five attempts). Ambiguous delivery, or a worker killed after starting a send, becomes uncertain and is not blindly resent; inspect the Discord channel/history. Exactly-once external delivery cannot be guaranteed across Discord/network failures. Re-enabling resets the activation cutoff and does not replay the old pending backlog. Existing payout and five-minute order jobs are independent; this does not require their database setup.
+
+## Validation
+
+Run `node --experimental-strip-types --test tests/*.test.mjs` and `npm run test:sale-alerts` after npm install. SQL tests use in-memory PostgreSQL with pg_cron/pg_net/Vault API stubs: the real hosted extensions and external network are not exercised. Route tests cover trusted scheduling, owner-bound preferences/leases, durable recording before delivery, background backlog draining, failures, overlap, retries and cron authentication. No real Discord message or production database mutation is made in development tests.
