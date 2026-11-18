@@ -7,5 +7,19 @@ export function walmartSaleMessage(sale:WalmartSaleEvent,siteUrl:string|null){
  let image=saleImage(sale.image);const set=/\bLEGO\b/i.test(sale.product_name)?sale.product_name.match(/\b(\d{5,6})\b/)?.[1]:null;
  if(!image&&siteUrl&&set&&['76917','75394','75354','21350','71813','40912','76934'].includes(set))image=`${siteUrl}/products/lego/${set}.jpg`;
  const logo=siteUrl?`${siteUrl}/soul-iridescent-logo.jpg`:null;
- return {username:'SOUL',...(logo?{avatar_url:logo}:{}),allowed_mentions:{parse:[]},embeds:[{author:{name:'SOUL / WALMART SALES',...(logo?{icon_url:logo}:{})},title:'New Walmart sale',description:clean(sale.product_name,1800),color:0x9fe2f6,...(image?{thumbnail:{url:image}}:{}),fields:[{name:'Sold for',value:usd(sale.revenue),inline:true},{name:'Quantity',value:String(sale.quantity),inline:true},{name:'Unit price',value:usd(sale.revenue/sale.quantity),inline:true},{name:'Fulfillment',value:clean(sale.fulfillment),inline:true},{name:'SKU',value:clean(sale.sku)||'Unavailable',inline:true},{name:'Order',value:clean(sale.order_id),inline:true}],footer:{text:'Soul · Product sales before fees, tax & shipping'},timestamp:sale.sold_at||new Date().toISOString()}]};
+ const markdown=(value:string,max=1200)=>clean(value,max).replace(/([\\*_~|<>\[\]()])/g,'\\$1');
+ const name=markdown(sale.product_name),order=markdown(sale.order_id,200);
+ const price=sale.quantity>1?`**${usd(sale.revenue)}**\n${usd(sale.revenue/sale.quantity)} each`:`**${usd(sale.revenue)}**`;
+ return {username:'SOUL',...(logo?{avatar_url:logo}:{}),allowed_mentions:{parse:[]},embeds:[{
+  author:{name:'🛒 New Walmart Sale'},
+  description:`**${name}**\nOrder ||${order}|| from **Walmart** just sold.`,
+  color:0xffb020,...(image?{thumbnail:{url:image}}:{}),
+  fields:[
+   {name:'Price',value:price,inline:true},
+   {name:'Quantity',value:String(sale.quantity),inline:true},
+   {name:'Fulfillment',value:clean(sale.fulfillment)==='SF'?'Seller fulfilled':clean(sale.fulfillment),inline:true},
+   {name:'SKU',value:`\`${clean(sale.sku)||'Unavailable'}\``,inline:false},
+   {name:'Manage order',value:`[Open Walmart Seller Center](https://seller.walmart.com/)${siteUrl?` · [Dashboard](${siteUrl})`:''}`,inline:false}
+  ],footer:{text:'Soul · Sales before fees, tax & shipping'},timestamp:sale.sold_at||new Date().toISOString()
+ }]};
 }
