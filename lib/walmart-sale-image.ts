@@ -23,7 +23,7 @@ export function catalogSaleImage(response:unknown,itemId:string){
 }
 // Cache only inside this owner's check. An unavailable Items permission or image
 // must not prevent an otherwise valid sale notification from being delivered.
-export function saleImageResolver(ownerId:string,deadline:number){
+export function saleImageResolver(ownerId:string,deadline:number,onIssue:(message:string)=>void=()=>{}){
  let access:Promise<string>|undefined;
  const cache=new Map<string,Promise<string|null>>();
  const remaining=()=>Math.max(1,Math.min(3000,deadline-Date.now()));
@@ -38,13 +38,20 @@ export function saleImageResolver(ownerId:string,deadline:number){
     const direct=listingSaleImage(response,sale.sku);if(direct)return direct;
     // Get Item may omit images. Resolve its exact product identifier through
     // Walmart's catalog search, then also verify the returned Walmart item ID.
-    const item=listingItem(response,sale.sku);if(!item||Date.now()>=deadline)return null;
+    const item=listingItem(response,sale.sku);if(!item){onIssue('Product image lookup returned no matching SKU.');return null;}
+    if(Date.now()>=deadline){onIssue('Product image lookup exceeded its time budget.');return null;}
     const gtin=String(item.gtin??''),upc=String(item.upc??''),itemId=String(item.itemId??'');
     const identifier=/^\d{14}$/.test(gtin)?'gtin='+gtin:/^\d{12}$/.test(upc)?'upc='+upc:null;
-    if(!identifier||!itemId)return null;
+    if(!identifier||!itemId){onIssue('Walmart listing omitted the identifiers needed for a product image.');return null;}
     const catalog=await walmartReport('/v3/items/walmart/search?'+identifier,token,'listing prices',remaining());
-    return catalogSaleImage(catalog,itemId);
-   }catch{return null;}
+    const image=catalogSaleImage(catalog,itemId);
+    if(!image)onIssue('Walmart catalog returned no supported image for the matching item ID.');
+    return image;
+   }catch(error){
+    const message=error instanceof Error?error.message:'';
+    onIssue(/HTTP 403/.test(message)?'Product image lookup denied. Enable Items read access on your Walmart API key.':/HTTP 429/.test(message)?'Walmart rate-limited the product image lookup.':'Product image lookup failed or timed out.');
+    return null;
+   }
   })());
   const image=await cache.get(sale.sku);return image?{...sale,image}:sale;
  };

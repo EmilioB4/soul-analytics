@@ -15,7 +15,7 @@ export async function GET(req:NextRequest){
   const admitted=await client.from('profiles').select('user_id').eq('user_id',job.owner_id).maybeSingle();if(admitted.error)return {error:'Account admission unavailable.'};if(!admitted.data){await client.from('walmart_sale_alert_settings').update({enabled:false,last_error:'Account access removed.'}).eq('owner_id',job.owner_id);return {skipped:true};}
   const token=crypto.randomUUID(),started=Date.now();const claim=await client.rpc('claim_walmart_sale_check',{p_owner:job.owner_id,p_token:token});if(claim.error)return {error:'Could not claim sale check.'};if(!claim.data)return {skipped:true};
   let sent=0,processed=0;const errors:string[]=[];
-  const withImage=saleImageResolver(job.owner_id,started+42000);
+  const withImage=saleImageResolver(job.owner_id,started+42000,message=>{if(!errors.includes(message))errors.push(message);});
   try{
    const deliver=async()=>{
    for(let i=0;i<3&&Date.now()-started<35000;i++){
