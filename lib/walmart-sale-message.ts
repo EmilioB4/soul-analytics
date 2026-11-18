@@ -6,6 +6,7 @@ export function walmartSaleMessage(sale:WalmartSaleEvent,siteUrl:string|null){
  const clean=(v:string,max=200)=>String(v).replace(/[\u0000-\u001f`]/g,' ').slice(0,max);
  let image=saleImage(sale.image);const set=/\bLEGO\b/i.test(sale.product_name)?sale.product_name.match(/\b(\d{5,6})\b/)?.[1]:null;
  if(!image&&siteUrl&&set&&['76917','75394','75354','21350','71813','40912','76934'].includes(set))image=`${siteUrl}/products/lego/${set}.jpg`;
+ if(!image&&siteUrl&&set==='66815')image=`${siteUrl}/products/lego/66815.png`;
  const logo=siteUrl?`${siteUrl}/soul-iridescent-logo.jpg`:null;
  const markdown=(value:string,max=1200)=>clean(value,max).replace(/([\\*_~|<>\[\]()])/g,'\\$1');
  const name=markdown(sale.product_name),order=markdown(sale.order_id,200);

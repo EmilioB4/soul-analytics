@@ -31,3 +31,8 @@ test('image/API failure or expired budget does not block a sale; existing order 
  const expired=setup();assert.equal((await expired.saleImageResolver('alice',0)(sale)).image,undefined);assert.equal(expired.calls.length,0);
  const existing=setup();assert.equal((await existing.saleImageResolver('alice',Date.now()+10000)({...sale,image})).image,image);assert.equal(existing.calls.length,0);
 });
+
+test('missing image identifiers and API failures are reported without blocking the sale',async()=>{
+ const issues=[];const missing=setup({listing:{ItemResponse:[{sku:sale.sku}]}});await missing.saleImageResolver('alice',Date.now()+10000,message=>issues.push(message))(sale);assert.match(issues[0],/omitted the identifiers/);
+ const failed=setup({fail:true});const result=await failed.saleImageResolver('alice',Date.now()+10000,message=>issues.push(message))(sale);assert.equal(result.product_name,'Shrek');assert.match(issues[1],/failed or timed out/);
+});
