@@ -1,0 +1,27 @@
+name: eBay connection and dashboard validation
+on:
+  pull_request:
+    paths:
+      - 'app/Ebay*'
+      - 'app/api/ebay/**'
+      - 'app/page.tsx'
+      - 'lib/ebay*'
+      - 'supabase/ebay_setup.sql'
+      - 'tests/ebay*'
+      - 'scripts/validate-ebay.cjs'
+      - '.github/workflows/ebay.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-package-lock
+      - run: node --experimental-strip-types --test tests/ebay-orders.test.mjs tests/ebay-routes.test.mjs
+      - run: node scripts/validate-ebay.cjs
+      - run: npm run test:isolation
+      - run: npm run build
