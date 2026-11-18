@@ -19,8 +19,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
+      - run: npm install --no-package-lock
       - run: node scripts/validate-walmart-daily-summary.cjs
       - run: node scripts/validate-walmart-daily-sql.cjs
       - run: npm run test:isolation
