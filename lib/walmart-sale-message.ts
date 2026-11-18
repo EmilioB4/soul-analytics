@@ -14,7 +14,7 @@ export function walmartSaleMessage(sale:WalmartSaleEvent,siteUrl:string|null){
  return {username:'SOUL',...(logo?{avatar_url:logo}:{}),allowed_mentions:{parse:[]},embeds:[{
   author:{name:'🛒 New Walmart Sale'},
   description:`**${name}**\nOrder ||${order}|| from **Walmart** just sold.`,
-  color:0xffb020,...(image?{thumbnail:{url:image}}:{}),
+  color:0x22c55e,...(image?{thumbnail:{url:image}}:{}),
   fields:[
    {name:'Price',value:price,inline:true},
    {name:'Quantity',value:String(sale.quantity),inline:true},
