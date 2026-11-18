@@ -77,7 +77,7 @@ export function nextCursor(v:unknown){const o=record(v),d=record(o.data),page=re
  return textValue(o.next_cursor)||textValue(o.next_page_token)||textValue(d.next_cursor)||textValue(d.next_page_token)||textValue(page.next_cursor)||textValue(page.next_page_token)||textValue(dp.next_cursor)||textValue(dp.next_page_token);
 }
 export async function importWhatnot(ownerId:string){
- if(!await configured(ownerId))throw Error('Connect your own Whatnot account in Integrations.');
+ if(!await configured(ownerId))throw Error('Connect your own Whatnot account in Settings → Connections.');
  const client=db();let ordersCount=0,showsCount=0,orderPages=0,showPages=0;let incomplete=false;
  // The provider may return more than one page. Bound each invocation to avoid long Vercel executions.
  for(const kind of ['orders','shows'] as const){

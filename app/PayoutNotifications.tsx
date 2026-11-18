@@ -14,7 +14,7 @@ export default function PayoutNotifications(){
  useEffect(()=>{const refresh=()=>void load();window.addEventListener('soul:automation-changed',refresh);window.addEventListener('soul:webhooks-refresh',refresh);void load();const timer=setInterval(()=>{if(document.visibilityState==='visible')void load(true);},15000);return()=>{clearInterval(timer);window.removeEventListener('soul:automation-changed',refresh);window.removeEventListener('soul:webhooks-refresh',refresh);};},[load]);
  async function action(kind:'save'|'test'|'check'){
   setBusy(true);setError('');setNotice('');try{
-   if(kind==='save'){await request('',{enabled:settings.enabled,tiktok_enabled:settings.tiktok_enabled,walmart_enabled:settings.walmart_enabled,...(webhook.trim()?{webhook:webhook.trim()}:{})});setWebhook('');setEditingWebhook(false);setNotice(settings.enabled?'Saved. Background payout checks started. See Automatic updates in Integrations for delivery verification.':'Payout notifications disabled.');window.dispatchEvent(new Event('soul:automation-changed'));}
+   if(kind==='save'){await request('',{enabled:settings.enabled,tiktok_enabled:settings.tiktok_enabled,walmart_enabled:settings.walmart_enabled,...(webhook.trim()?{webhook:webhook.trim()}:{})});setWebhook('');setEditingWebhook(false);setNotice(settings.enabled?'Saved. Background payout checks started. See Settings → Automatic updates for delivery verification.':'Payout notifications disabled.');window.dispatchEvent(new Event('soul:automation-changed'));}
    else if(kind==='test'){await request('/test',{});setNotice('Test notification delivered to Discord.');}
    else{const result=await request('/check',{});setNotice([result.notice,typeof result.sent==='number'?`${result.sent} notifications sent.`:'',...(result.errors||[])].filter(Boolean).join(' '));}
    await load();
@@ -27,10 +27,10 @@ export default function PayoutNotifications(){
  <label><input type="checkbox" checked={settings.enabled} onChange={e=>setSettings(s=>({...s,enabled:e.target.checked}))}/> Enable payout notifications</label>
  <label><input type="checkbox" checked={settings.tiktok_enabled} onChange={e=>setSettings(s=>({...s,tiktok_enabled:e.target.checked}))}/> TikTok Shop · initiated / sent</label>
  <label><input type="checkbox" checked={settings.walmart_enabled} disabled={!walmartReady} onChange={e=>setSettings(s=>({...s,walmart_enabled:e.target.checked}))}/> Walmart · scheduled / reported sent</label>
- {!walmartReady&&<p className="muted" style={{fontSize:12}}>Connect your own credentials in Walmart connection in Integrations before enabling Walmart alerts.</p>}
+ {!walmartReady&&<p className="muted" style={{fontSize:12}}>Connect your own credentials in Walmart connection in Settings → Connections before enabling Walmart alerts.</p>}
  <label className="muted"><input type="checkbox" disabled/> Whatnot · unavailable through the current payout API integration</label>
  <div className="settingsActions"><button className="primaryBtn" disabled={busy||loading} onClick={()=>void action('save')}>Save notifications</button><button className="outlineBtn" disabled={busy||!configured||Boolean(webhook.trim())} onClick={()=>void action('test')}>Send test notification</button><button className="outlineBtn" disabled={busy||!configured||!settings.enabled||Boolean(webhook.trim())} onClick={()=>void action('check')}>{busy?'Working…':'Check now'}</button></div>
- <p className="muted">{fastChecks?'A minute schedule is configured.':'Background scheduling has not been configured.'} Saving enabled notifications starts the schedule. Use Automatic updates in Integrations to verify delivery or repair it.</p>
+ <p className="muted">{fastChecks?'A minute schedule is configured.':'Background scheduling has not been configured.'} Saving enabled notifications starts the schedule. Use Settings → Automatic updates to verify delivery or repair it.</p>
  <DiscordPayoutPreview/>
  <p className="muted" style={{fontSize:12}}>Status refreshes here every 15 seconds while this page is visible. The first successful check per platform records existing payouts silently; newly observed statuses alert after that. TikTok checks payments created in the last 90 days. Source or delivery failures appear here. Uncertain deliveries are not automatically resent to avoid duplicate messages.</p>
 

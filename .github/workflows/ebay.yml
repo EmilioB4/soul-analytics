@@ -1,8 +1,13 @@
-name: eBay connection and dashboard validation
+name: Connections and eBay validation
 on:
   pull_request:
     paths:
       - 'app/Ebay*'
+      - 'app/ConnectionCheck.tsx'
+      - 'app/api/connections/verify/**'
+      - 'tests/connection-checks.test.mjs'
+      - 'app/WalmartConnection.tsx'
+      - 'app/WhatnotConnection.tsx'
       - 'app/api/ebay/**'
       - 'app/page.tsx'
       - 'lib/ebay*'
@@ -21,7 +26,7 @@ jobs:
         with:
           node-version: 22
       - run: npm install --no-package-lock
-      - run: node --experimental-strip-types --test tests/ebay-orders.test.mjs tests/ebay-routes.test.mjs
+      - run: node --experimental-strip-types --test tests/ebay-orders.test.mjs tests/ebay-routes.test.mjs tests/ebay-api.test.mjs tests/connection-checks.test.mjs
       - run: node scripts/validate-ebay.cjs
       - run: npm run test:isolation
       - run: npm run build

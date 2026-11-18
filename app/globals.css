@@ -319,3 +319,5 @@ html[data-soul-theme=light] .inventoryBadge.healthy{color:#197b69}html[data-soul
 .dailySummarySchedule{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:18px 20px;margin-top:20px;border:1px solid #354350;border-radius:14px;background:linear-gradient(110deg,rgba(226,185,239,.09),rgba(153,227,248,.07))}.dailySummarySchedule strong{color:#f4f3fa}.dailySummarySchedule span{font-size:13px}
 
 .ebayMetric{padding:24px}.ebayMetric .ebayMetricValue{font-size:32px;font-weight:800;letter-spacing:-1px;margin:14px 0}.ebayMetric p{font-size:12px;margin:0}.ebayTables input{max-width:140px}
+
+.connectionJump{display:inline-flex;text-decoration:none;align-items:center;justify-content:center}[id^="connect-"]{scroll-margin-top:24px}

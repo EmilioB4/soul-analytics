@@ -24,7 +24,7 @@ export async function POST(req:NextRequest){try{
  let encrypted=previous.data?.webhook_encrypted||null;
  if(input.webhook!==undefined){if(typeof input.webhook!=='string')return NextResponse.json({error:'Enter a Discord webhook URL.'},{status:400});if(input.webhook.trim())encrypted=encrypt(discordWebhookUrl(input.webhook));}
  if(input.enabled){
-  if(!await walmartPayoutOwnerMatches(user.id))return NextResponse.json({error:'Connect your own Walmart account in Integrations first.'},{status:409});
+  if(!await walmartPayoutOwnerMatches(user.id))return NextResponse.json({error:'Connect your own Walmart account in Settings → Connections first.'},{status:409});
   if(input.useSaleWebhook){const sale=await client.from('walmart_sale_alert_settings').select('webhook_encrypted').eq('owner_id',user.id).maybeSingle();if(sale.error||!sale.data?.webhook_encrypted)return NextResponse.json({error:'Save a sale-alert webhook below, or choose a separate summary webhook.'},{status:400});}
   else if(!encrypted)return NextResponse.json({error:'Paste a Discord webhook URL first.'},{status:400});
   const {origin,secret}=automationConfig(),scheduled=await client.rpc('configure_walmart_daily_summary',{p_origin:origin,p_secret:secret,p_bypass:process.env.VERCEL_AUTOMATION_BYPASS_SECRET||null});if(scheduled.error)throw Error(setup);
