@@ -15,7 +15,10 @@ assert.equal(summary.revenue,80);assert.equal(summary.profit,33.5);assert.equal(
 assert.equal(calculateDailySummary({...input,costs:[]}).profit,null);
 assert.equal(calculateDailySummary({...input,returnsReady:false}).profit,null);
 assert.equal(calculateDailySummary({...input,financeReady:false}).profit,null);
-assert.equal(calculateDailySummary({...input,recoveriesReady:false}).profit,null);
+const noCredits=calculateDailySummary({...input,recoveriesReady:false});
+assert.equal(noCredits.profit,13.5);assert.equal(noCredits.partial,true);assert.match(noCredits.reason,/original COGS retained/);
+const noRefunds=calculateDailySummary({...input,returns:[],recoveries:[],recoveriesReady:false});assert.equal(noRefunds.profit,33.5);
+const noCreditMessage=dailySummaryMessage(noCredits,null).embeds[0];assert.equal(noCreditMessage.fields[1].value,'$13.50');assert.equal(noCreditMessage.fields[5].name,'Estimated profit margin');assert.equal(noCreditMessage.fields[5].value,'16.9%');
 assert.equal(calculateDailySummary({...input,fees:[]}).partial,true);
 assert.throws(()=>calculateDailySummary({...input,sales:[{...sale,revenue:NaN}]}));
 const empty=calculateDailySummary({...input,sales:[],returns:[],recoveries:[],fees:[]});assert.equal(empty.revenue,0);assert.equal(empty.profit,0);

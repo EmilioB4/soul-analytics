@@ -21,3 +21,7 @@ Queued alerts drain before another source poll, so slow Walmart responses cannot
 ## Validation
 
 Run `node --experimental-strip-types --test tests/*.test.mjs` and `npm run test:sale-alerts` after npm install. SQL tests use in-memory PostgreSQL with pg_cron/pg_net/Vault API stubs: the real hosted extensions and external network are not exercised. Route tests cover trusted scheduling, owner-bound preferences/leases, durable recording before delivery, background backlog draining, failures, overlap, retries and cron authentication. No real Discord message or production database mutation is made in development tests.
+
+## Item images
+
+Before delivering a sale without an order image, the worker looks up that owner’s exact seller SKU using [Get an item](https://developer.walmart.com/us-marketplace/reference/getanitem). If the listing omits images, it searches the [Walmart catalog](https://developer.walmart.com/us-marketplace/docs/item-search-for-the-walmart-catalog) using that listing’s GTIN or UPC and checks the exact Walmart item ID before using an image. Enable Items read access on the Walmart API key for these lookups. Only HTTPS Walmart image hosts are accepted. Lookup results and the access token are cached inside one owner’s check, with short timeouts; failed lookups do not block sale notifications. Existing bundled product images remain a fallback. No new SQL, webhook URL or schedule configuration is needed. Old Discord messages are not edited.
