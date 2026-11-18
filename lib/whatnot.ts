@@ -1,7 +1,8 @@
 import {db} from './tiktok';
+import {hasWhatnotConnection,whatnotToken} from './whatnot-connections';
 
 const BASE='https://api.whatnot.com/seller-api/rest/v2';
-export function configured(ownerId?:string){return Boolean(ownerId&&process.env.WHATNOT_OWNER_ID===ownerId&&process.env.WHATNOT_API_TOKEN?.trim());}
+export async function configured(ownerId?:string){return Boolean(ownerId&&await hasWhatnotConnection(ownerId));}
 function record(v:unknown):Record<string,unknown>{return v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};}
 // Financial fields stay available while obvious customer/shipping PII is excluded.
 function scrub(value:unknown):unknown{
@@ -15,10 +16,10 @@ export function iso(v:unknown):string|null{
  if(typeof v!=='string'||!v.trim())return null;
  const d=new Date(v);return Number.isNaN(d.valueOf())?null:d.toISOString();
 }
-export async function callWhatnot(path:string,query?:URLSearchParams,options?:{method?:'GET'|'POST';body?:unknown}){
- const token=process.env.WHATNOT_API_TOKEN?.trim();if(!token)throw Error('WHATNOT_API_TOKEN not configured in Vercel');
+export async function callWhatnot(ownerId:string,path:string,query?:URLSearchParams,options?:{method?:'GET'|'POST';body?:unknown}){
+ const token=await whatnotToken(ownerId);
  const url=BASE+path+(query?.size?'?'+query.toString():'');
- const response=await fetch(url,{method:options?.method||'GET',headers:{Authorization:`Bearer ${token}`,Accept:'application/json',...(options?.body?{'Content-Type':'application/json'}:{})},body:options?.body?JSON.stringify(options.body):undefined,cache:'no-store',signal:AbortSignal.timeout(20000)});
+ const response=await fetch(url,{method:options?.method||'GET',headers:{Authorization:`Bearer ${token}`,Accept:'application/json',...(options?.body?{'Content-Type':'application/json'}:{})},body:options?.body?JSON.stringify(options.body):undefined,cache:'no-store',redirect:'error',signal:AbortSignal.timeout(20000)});
  if(!response.ok){
   if(response.status===401||response.status===403)throw Error('Whatnot token expired or lacks read permissions ('+response.status+').');
   if(response.status===429)throw Error('Whatnot API rate limit. Retry after a short interval.');
@@ -76,14 +77,14 @@ export function nextCursor(v:unknown){const o=record(v),d=record(o.data),page=re
  return textValue(o.next_cursor)||textValue(o.next_page_token)||textValue(d.next_cursor)||textValue(d.next_page_token)||textValue(page.next_cursor)||textValue(page.next_page_token)||textValue(dp.next_cursor)||textValue(dp.next_page_token);
 }
 export async function importWhatnot(ownerId:string){
- if(process.env.WHATNOT_OWNER_ID!==ownerId)throw Error("This Whatnot connection is not assigned to your account.");
+ if(!await configured(ownerId))throw Error('Connect your own Whatnot account in Integrations.');
  const client=db();let ordersCount=0,showsCount=0,orderPages=0,showPages=0;let incomplete=false;
  // The provider may return more than one page. Bound each invocation to avoid long Vercel executions.
  for(const kind of ['orders','shows'] as const){
   let cursor:string|null=null;const cursors=new Set<string>();
   for(let page=0;page<5;page++){
    const query=new URLSearchParams();if(cursor)query.set('cursor',cursor);
-   const response=await callWhatnot('/'+kind,query);
+   const response=await callWhatnot(ownerId,'/'+kind,query);
    const items=unwrap(response,kind);
    if(!items)throw Error('Unexpected Whatnot /'+kind+' response ('+responseShape(response)+'). No records from this page saved.');
    const rows=items.map(raw=>{

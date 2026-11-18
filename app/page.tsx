@@ -5,6 +5,7 @@ import {supabase} from './supabase';
 import AutomationStatus from './AutomationStatus';
 import WalmartConnection from './WalmartConnection';
 import EbayConnection from './EbayConnection';
+import WhatnotConnection from './WhatnotConnection';
 import EbayDashboard from './EbayDashboard';
 import AuthNotice,{type AuthMessage} from './AuthNotice';
 import WalmartSaleAlerts from './WalmartSaleAlerts';
@@ -291,6 +292,7 @@ export default function Home(){
  {tab==='settings'&&<section className="surface settingsPanel"><h2>Discord notifications</h2><p className="muted">Manage sale alerts, payout notifications and daily summaries in Webhooks.</p><button className="outlineBtn" onClick={()=>setTab('webhooks')}>Open Webhooks ↗</button></section>}
  {tab==='settings'&&<WalmartConnection/>}
  {tab==='settings'&&<EbayConnection/>}
+ {tab==='settings'&&<WhatnotConnection/>}
  {tab==='ebay'&&<EbayDashboard/>}
  <AuthNotice notice={ebayNotice}/>
  {tab==='webhooks'&&<WalmartDailySummary/>}

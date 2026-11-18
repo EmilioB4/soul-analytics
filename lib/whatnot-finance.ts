@@ -1,6 +1,6 @@
 import {soldQuantity} from './sold-units';
 import {db} from './tiktok';
-import {callWhatnot,unwrap,textValue} from './whatnot';
+import {callWhatnot,configured,unwrap,textValue} from './whatnot';
 
 type Dict=Record<string,unknown>;
 const asObj=(v:unknown):Dict=>v&&typeof v==='object'&&!Array.isArray(v)?v as Dict:{};
@@ -31,16 +31,16 @@ function weekWindow(weeksAgo:number){
  const end=new Date(monday);end.setUTCDate(end.getUTCDate()+7);
  return {start:monday.toISOString(),end:end.toISOString()};
 }
-async function requestReport(start:string,end:string){
+async function requestReport(ownerId:string,start:string,end:string){
  const body={report_parameters:{report_type:'seller_financial_report',start_date:start,end_date:end}};
- const result=asObj(await callWhatnot('/reports',undefined,{method:'POST',body}));
+ const result=asObj(await callWhatnot(ownerId,'/reports',undefined,{method:'POST',body}));
  const r=asObj(result.data);const o=Object.keys(r).length?r:result;
  const id=textValue(o.id)||textValue(o.report_id);
  if(!id)throw Error('Whatnot created an unrecognized financial report response (no report ID).');
  return {id,status:txt(o.status)||'pending'};
 }
-async function getReport(id:string){
- const result=asObj(await callWhatnot('/reports/'+encodeURIComponent(id)));
+async function getReport(ownerId:string,id:string){
+ const result=asObj(await callWhatnot(ownerId,'/reports/'+encodeURIComponent(id)));
  const r=asObj(result.data);return Object.keys(r).length?r:result;
 }
 async function importReport(ownerId:string,id:string,url:string,withUnits:boolean){
@@ -67,14 +67,14 @@ async function importReport(ownerId:string,id:string,url:string,withUnits:boolea
  return accepted;
 }
 export async function syncFinancialReports(ownerId:string){
- if(process.env.WHATNOT_OWNER_ID!==ownerId)throw Error("This Whatnot connection is not assigned to your account.");
+ if(!await configured(ownerId))throw Error('Connect your own Whatnot account in Integrations.');
  const client=db();let imported=0,completed=0,created=0;
  const unitSchema=await client.from('whatnot_ledger').select('quantity_sold').eq('owner_id',ownerId).limit(1);const withUnits=!unitSchema.error;
  // Poll up to six completed/pending runs each invocation (the report API is asynchronous).
  const {data:pending,error:pErr}=await client.from('whatnot_report_runs').select('*').eq('owner_id',ownerId).is('imported_at',null).order('created_at',{ascending:true}).limit(2);
  if(pErr)throw Error('Financial tables missing. Run supabase/whatnot_financials.sql first.');
  for(const run of pending||[]){
-  const report=await getReport(String(run.report_id));const status=txt(report.status)||'unknown';
+  const report=await getReport(ownerId,String(run.report_id));const status=txt(report.status)||'unknown';
   if(status==='completed'){
    const url=txt(report.report_url);if(!url)throw Error('Completed Whatnot report does not include a download URL.');
    imported+=await importReport(ownerId,String(run.report_id),url,withUnits);completed++;
@@ -95,7 +95,7 @@ export async function syncFinancialReports(ownerId:string){
   const ids=[...new Set((missing.data||[]).map(r=>r.import_report_id).filter(Boolean))];
   for(const id of ids){if(created>=2)break;
    const prior=eligible.find(r=>r.report_id===id);if(!prior)continue;
-   const refreshed=await requestReport(prior.start_at,prior.end_at);
+   const refreshed=await requestReport(ownerId,prior.start_at,prior.end_at);
    const saved=await client.from('whatnot_report_runs').update({report_id:refreshed.id,status:refreshed.status,imported_at:null,created_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('owner_id',ownerId).eq('report_id',id);if(saved.error)throw Error('Could not queue unit quantity refresh.');created++;
   }
  }
@@ -108,7 +108,7 @@ export async function syncFinancialReports(ownerId:string){
   const {data,error}=await client.from('whatnot_report_runs').select('report_id').eq('owner_id',ownerId).eq('start_at',win.start).eq('end_at',win.end).maybeSingle();
   if(error)throw Error('Unable to inspect Whatnot financial report history.');
   if(data)continue;
-  const run=await requestReport(win.start,win.end);
+  const run=await requestReport(ownerId,win.start,win.end);
   const {error:insErr}=await client.from('whatnot_report_runs').insert({owner_id:ownerId,report_id:run.id,start_at:win.start,end_at:win.end,status:run.status});
   if(insErr)throw Error('Could not save the newly generated report run.');
   created++;
@@ -121,7 +121,7 @@ export async function syncFinancialReports(ownerId:string){
    if(!data||!data.imported_at||Date.now()-Date.parse(data.created_at)<24*3600*1000)continue;
    const {error:delErr}=await client.from('whatnot_report_runs').delete().eq('owner_id',ownerId).eq('report_id',data.report_id);
    if(delErr)throw Error('Unable to refresh stale report run.');
-   const run=await requestReport(win.start,win.end);
+   const run=await requestReport(ownerId,win.start,win.end);
    const {error:insErr}=await client.from('whatnot_report_runs').insert({owner_id:ownerId,report_id:run.id,start_at:win.start,end_at:win.end,status:run.status});
    if(insErr)throw Error('Could not save refreshed financial report run.');
    created++;break;

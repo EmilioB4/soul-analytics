@@ -1,0 +1,31 @@
+const {PGlite}=require(process.env.PGLITE_MODULE||'@electric-sql/pglite'),assert=require('node:assert/strict');
+const {buildPlan,applyPlan,publicPlan,encrypt,decrypt}=require('./lib/consolidation.cjs');
+(async()=>{
+ const source=new PGlite(),target=new PGlite();
+ const oldAlice='11111111-1111-4111-8111-111111111111',newAlice='22222222-2222-4222-8222-222222222222',oldBob='33333333-3333-4333-8333-333333333333',newBob='44444444-4444-4444-8444-444444444444';
+ const mapping=[{sourceId:oldAlice,targetId:newAlice},{sourceId:oldBob,targetId:newBob}],keys={source:'11'.repeat(32),target:'22'.repeat(32)};
+ const schema=`create schema auth;create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz);create table profiles(user_id uuid primary key references auth.users(id),created_at timestamptz default now());create table stats(owner_id uuid references auth.users(id),external_id text,data jsonb,primary key(owner_id,external_id));create table payout_alert_settings(owner_id uuid primary key references auth.users(id),token_encrypted text,enabled boolean,lock_token uuid);create table payout_alert_events(owner_id uuid references payout_alert_settings(owner_id),event_id text,state text,primary key(owner_id,event_id));create table history(id bigint generated always as identity primary key,owner_id uuid references auth.users(id),data jsonb);`;
+ for(const db of [source,target])await db.exec(schema);
+ for(const [db,ids] of [[source,[oldAlice,oldBob]],[target,[newAlice,newBob]]])for(let i=0;i<ids.length;i++){await db.query('insert into auth.users values($1,$2,now())',[ids[i],i?'bob@example.test':'alice@example.test']);await db.query('insert into profiles(user_id) values($1)',[ids[i]]);}
+ await target.exec('alter table stats add column optional_new_field text');
+ await source.query('insert into stats values($1,$2,$3)',[oldAlice,'a',{amount:10}]);await source.query('insert into stats values($1,$2,$3)',[oldBob,'b',{amount:20}]);await target.query('insert into stats(owner_id,external_id,data) values($1,$2,$3)',[newBob,'existing',{amount:30}]);
+ await source.query('insert into payout_alert_settings values($1,$2,true,$3)',[oldAlice,encrypt('private-token',keys.source),oldAlice]);await source.query("insert into payout_alert_events values($1,'e','sending')",[oldAlice]);await source.query('insert into history(owner_id,data) values($1,$2)',[oldAlice,{event:'old'}]);await target.query('insert into history(owner_id,data) values($1,$2)',[newBob,{event:'existing'}]);
+ await target.query('insert into payout_alert_settings values($1,$2,true,null)',[newBob,encrypt('friend-private-token',keys.target)]);
+ const plan=await buildPlan(source,target,mapping,keys);assert.equal(plan.targetKeyVerified,true);assert.equal(plan.conflicts,0);assert.equal(plan.tables.find(t=>t.name==='stats').sourceRows,2);assert.equal(JSON.stringify(publicPlan(plan)).includes('private-token'),false);assert.equal(JSON.stringify(publicPlan(plan)).includes('pending'),false);
+ await target.exec('begin');await applyPlan(target,plan,keys);await target.exec('commit');
+ const secret=(await target.query('select * from payout_alert_settings where owner_id=$1',[newAlice])).rows[0];assert.equal(decrypt(secret.token_encrypted,keys.target),'private-token');assert.equal(decrypt((await target.query('select token_encrypted from payout_alert_settings where owner_id=$1',[newBob])).rows[0].token_encrypted,keys.target),'friend-private-token');assert.equal(secret.enabled,false);assert.equal(secret.lock_token,null);
+ assert.equal((await target.query('select state from payout_alert_events')).rows[0].state,'uncertain');assert.equal((await target.query('select count(*)::int as n from history')).rows[0].n,2);assert.equal((await target.query('select count(*)::int as n from stats where owner_id=$1',[newBob])).rows[0].n,2);
+ await assert.rejects(buildPlan(source,target,mapping,{...keys,target:'33'.repeat(32)}));
+ const rerun=await buildPlan(source,target,mapping,keys);assert.equal(rerun.conflicts,0);assert.equal(rerun.tables.reduce((n,t)=>n+t.insertRows,0),0);
+ await source.query('update stats set data=$1 where owner_id=$2',[{amount:99},oldAlice]);const conflict=await buildPlan(source,target,mapping,keys);assert.equal(conflict.conflicts,1);await assert.rejects(applyPlan(target,conflict,keys),/Conflicting/);assert.equal((await target.query('select data from stats where owner_id=$1',[newAlice])).rows[0].data.amount,10);
+ await assert.rejects(buildPlan(source,target,[mapping[0]],keys),/every admitted source/);
+ await target.query('update auth.users set email=$1 where id=$2',['wrong@example.test',newAlice]);await assert.rejects(buildPlan(source,target,mapping,keys),/Different email/);
+ await target.query('update auth.users set email=$1 where id=$2',['alice@example.test',newAlice]);
+ await source.query('update stats set data=$1 where owner_id=$2',[{amount:10},oldAlice]);
+ for(const db of [source,target])await db.exec('create table zzz_failure(owner_id uuid primary key references auth.users(id),value text)');
+ await source.query('insert into stats values($1,$2,$3)',[oldAlice,'new-before-failure',{amount:5}]);await source.query('insert into zzz_failure values($1,$2)',[oldAlice,'stop']);
+ await target.exec("create function fail_transfer() returns trigger language plpgsql as $$ begin raise exception 'synthetic failure'; end $$;create trigger synthetic_failure before insert on zzz_failure for each row execute function fail_transfer();");
+ const failing=await buildPlan(source,target,mapping,keys);await target.exec('begin');await assert.rejects(applyPlan(target,failing,keys),/synthetic failure/);await target.exec('rollback');assert.equal((await target.query("select count(*)::int as n from stats where external_id='new-before-failure'")).rows[0].n,0);
+ await source.exec('begin read only;lock table stats in share mode;rollback');
+ await source.close();await target.close();console.log('Consolidation preview, identity mapping, re-encryption, row verification, no-overwrite, generated-ID handling and idempotence passed.');
+})().catch(error=>{console.error(error);process.exitCode=1;});
