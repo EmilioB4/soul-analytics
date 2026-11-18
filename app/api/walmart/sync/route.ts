@@ -17,7 +17,7 @@ export async function POST(req:NextRequest){
  try{
   const user=await syncRequestOwner(req,'walmart');
   if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
-  const deadline=Date.now()+45000;const token=await walmartAccessToken(user.id);
+  const deadline=Date.now()+(req.headers.get('x-soul-daily-lease')?25000:45000);const token=await walmartAccessToken(user.id,Math.max(1,Math.min(15000,deadline-Date.now())));
   const input=await req.json().catch(()=>({}));const validDate=(x:unknown)=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x))&&new Date(x).toISOString().slice(0,10)===x;
   if((input.startDate&&!validDate(input.startDate))||(input.endDate&&!validDate(input.endDate))||(input.startDate&&input.endDate&&input.startDate>input.endDate))return NextResponse.json({error:'Invalid sync date range.'},{status:400});
   const since=input.startDate?newYorkMidnight(input.startDate):new Date(Date.now()-89*86400000).toISOString();

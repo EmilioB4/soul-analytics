@@ -1,0 +1,28 @@
+name: Daily summary validation
+on:
+  pull_request:
+    paths:
+      - 'lib/walmart-daily*'
+      - 'app/WalmartDailySummary.tsx'
+      - 'app/page.tsx'
+      - 'app/api/notifications/daily/**'
+      - 'supabase/walmart_daily_summary.sql'
+      - 'scripts/validate-walmart-daily*'
+      - '.github/workflows/daily-summary.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/validate-walmart-daily-summary.cjs
+      - run: node scripts/validate-walmart-daily-sql.cjs
+      - run: npm run test:isolation
+      - run: npm run test:sale-alerts
+      - run: npm run build
