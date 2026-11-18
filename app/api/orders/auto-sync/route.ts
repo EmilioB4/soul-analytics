@@ -14,8 +14,8 @@ export async function POST(req:NextRequest){try{
  const user=await owner(req.headers.get('authorization'));if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
  const body=await req.json(),platforms=['tiktok','walmart','whatnot'] as const;
  if(!body.enabled||typeof body.enabled!=='object'||platforms.some(p=>typeof body.enabled[p]!=='boolean'))return NextResponse.json({error:'Choose valid platform preferences.'},{status:400});
- if(body.enabled.walmart&&!await walmartPayoutOwnerMatches(user.id))return NextResponse.json({error:'Connect your own Walmart account in Connections & settings first.'},{status:409});
- if(body.enabled.whatnot&&!await hasWhatnotConnection(user.id))return NextResponse.json({error:'Connect your Whatnot account in Integrations first.'},{status:409});
+ if(body.enabled.walmart&&!await walmartPayoutOwnerMatches(user.id))return NextResponse.json({error:'Connect your own Walmart account in Settings → Connections first.'},{status:409});
+ if(body.enabled.whatnot&&!await hasWhatnotConnection(user.id))return NextResponse.json({error:'Connect your Whatnot account in Settings → Connections first.'},{status:409});
  const client=db();if(platforms.some(p=>body.enabled[p])){
   await configureAutomation();
  }

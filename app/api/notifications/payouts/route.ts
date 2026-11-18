@@ -22,7 +22,7 @@ export async function POST(req:NextRequest){try{
  if(body.webhook){if(typeof body.webhook!=='string')return NextResponse.json({error:'Invalid Discord webhook.'},{status:400});try{secret=encrypt(discordWebhookUrl(body.webhook));}catch{return NextResponse.json({error:'Use a valid Discord webhook URL and configure TIKTOK_TOKEN_ENCRYPTION_KEY in Vercel.'},{status:400});}}
  if(!secret)return NextResponse.json({error:'Enter a Discord webhook URL.'},{status:400});
  if(body.enabled&&!body.tiktok_enabled&&!body.walmart_enabled)return NextResponse.json({error:'Select at least one supported platform.'},{status:400});
- if(body.enabled&&body.walmart_enabled&&!await walmartPayoutOwnerMatches(user.id))return NextResponse.json({error:'Connect your own Walmart account in Connections & settings before enabling Walmart.'},{status:400});
+ if(body.enabled&&body.walmart_enabled&&!await walmartPayoutOwnerMatches(user.id))return NextResponse.json({error:'Connect your own Walmart account in Settings → Connections before enabling Walmart.'},{status:400});
  if(body.enabled)await configureAutomation();
  const {error}=await client.from('payout_alert_settings').upsert({owner_id:user.id,webhook_encrypted:secret,enabled:body.enabled,tiktok_enabled:body.tiktok_enabled,walmart_enabled:body.walmart_enabled});if(error)throw Error('Could not save alert settings.');
  if(body.enabled)await queueAutomation('payouts');

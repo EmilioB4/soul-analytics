@@ -20,7 +20,7 @@ export async function walmartCredentials(ownerId:string):Promise<{id:string;secr
   const id=process.env.WALMART_CLIENT_ID,secret=process.env.WALMART_CLIENT_SECRET;
   if(id&&secret)return {id,secret};
  }
- throw Error('Connect your own Walmart account in Connections & settings.');
+ throw Error('Connect your own Walmart account in Settings → Connections.');
 }
 export async function validateWalmartCredentials(id:string,secret:string){
  const response=await fetch('https://marketplace.walmartapis.com/v3/token',{method:'POST',headers:{Authorization:'Basic '+Buffer.from(`${id}:${secret}`).toString('base64'),Accept:'application/json','Content-Type':'application/x-www-form-urlencoded','WM_SVC.NAME':'Walmart Marketplace','WM_QOS.CORRELATION_ID':crypto.randomUUID()},body:'grant_type=client_credentials',cache:'no-store',signal:AbortSignal.timeout(15000)});

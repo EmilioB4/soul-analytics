@@ -10,9 +10,9 @@ export async function hasWhatnotConnection(ownerId:string){const {saved}=await w
 export async function whatnotToken(ownerId:string){
  if(!ownerId)throw Error('Sign in to connect Whatnot.');
  const {saved}=await whatnotConnection(ownerId);
- if(saved){if(!saved.token_encrypted)throw Error('Reconnect Whatnot in Integrations.');return decrypt(saved.token_encrypted);}
+ if(saved){if(!saved.token_encrypted)throw Error('Reconnect Whatnot in Settings → Connections.');return decrypt(saved.token_encrypted);}
  if(legacyWhatnotOwner(ownerId))return process.env.WHATNOT_API_TOKEN!.trim();
- throw Error('Connect your own Whatnot account in Integrations first.');
+ throw Error('Connect your own Whatnot account in Settings → Connections first.');
 }
 export async function verifyWhatnotToken(token:string){
  const response=await fetch('https://api.whatnot.com/seller-api/rest/v2/users/me',{headers:{Authorization:'Bearer '+token,Accept:'application/json'},cache:'no-store',redirect:'error',signal:AbortSignal.timeout(12000)});

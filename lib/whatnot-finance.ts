@@ -67,7 +67,7 @@ async function importReport(ownerId:string,id:string,url:string,withUnits:boolea
  return accepted;
 }
 export async function syncFinancialReports(ownerId:string){
- if(!await configured(ownerId))throw Error('Connect your own Whatnot account in Integrations.');
+ if(!await configured(ownerId))throw Error('Connect your own Whatnot account in Settings → Connections.');
  const client=db();let imported=0,completed=0,created=0;
  const unitSchema=await client.from('whatnot_ledger').select('quantity_sold').eq('owner_id',ownerId).limit(1);const withUnits=!unitSchema.error;
  // Poll up to six completed/pending runs each invocation (the report API is asynchronous).

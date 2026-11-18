@@ -19,7 +19,7 @@ export async function checkPayoutAlerts(ownerId:string){
  let checked=0,sent=0,baselined=0;const errors:string[]=[],started=Date.now();
  try{
   const {data:settings,error}=await client.from('payout_alert_settings').select('*').eq('owner_id',ownerId).single();if(error||!settings)throw Error('Could not load alert settings.');
-  let webhook:string;try{webhook=discordWebhookUrl(decrypt(settings.webhook_encrypted));}catch{throw Error('Discord webhook could not be decrypted. Re-save it in Integrations.');}
+  let webhook:string;try{webhook=discordWebhookUrl(decrypt(settings.webhook_encrypted));}catch{throw Error('Discord webhook could not be decrypted. Re-save it in Webhooks.');}
   // A killed invocation may have reached Discord before it could record success.
   const stale=await client.from('payout_alert_events').update({state:'uncertain',updated_at:new Date().toISOString()}).eq('owner_id',ownerId).eq('state','sending');if(stale.error)throw Error('Could not inspect delivery history.');
   const platforms=(['tiktok','walmart'] as const).filter(p=>settings[`${p}_enabled`]);
