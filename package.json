@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "test:isolation": "node scripts/validate-multiuser-isolation.cjs",
-    "test:sale-alerts": "node scripts/validate-walmart-sale-alerts.cjs"
+    "test:sale-alerts": "node scripts/validate-walmart-sale-alerts.cjs",
+    "migration:plan": "node scripts/consolidate-supabase.cjs"
   },
   "dependencies": {
     "next": "^15.3.0",
@@ -19,6 +20,7 @@
     "typescript": "^5.8.0",
     "@types/react": "^19.0.0",
     "@types/node": "^22.0.0",
-    "@electric-sql/pglite": "0.5.15"
+    "@electric-sql/pglite": "0.5.15",
+    "pg": "^8.16.3"
   }
 }

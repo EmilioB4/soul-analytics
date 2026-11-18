@@ -2,6 +2,7 @@ import {NextRequest,NextResponse} from 'next/server';
 import {owner,db} from '../../../lib/tiktok';
 import {walmartPayoutOwnerMatches} from '../../../lib/payout-ownership';
 import {configureAutomation,queueAutomation} from '../../../lib/automation';
+import {hasWhatnotConnection} from '../../../lib/whatnot-connections';
 export const runtime='nodejs';export const maxDuration=60;
 async function state(id:string){
  const client=db();const [orders,payouts,tiktok]=await Promise.all([
@@ -11,7 +12,7 @@ async function state(id:string){
  ]);
  if(orders.error||payouts.error)throw Error('Run supabase/automation_repair.sql in Supabase SQL Editor to finish background setup.');
  if(tiktok.error)throw Error('Unable to verify the TikTok connection.');
- return {jobs:orders.data||[],payouts:payouts.data,connected:{tiktok:Boolean(tiktok.data),walmart:await walmartPayoutOwnerMatches(id),whatnot:process.env.WHATNOT_OWNER_ID===id&&Boolean(process.env.WHATNOT_API_TOKEN)}};
+ return {jobs:orders.data||[],payouts:payouts.data,connected:{tiktok:Boolean(tiktok.data),walmart:await walmartPayoutOwnerMatches(id),whatnot:await hasWhatnotConnection(id)}};
 }
 export async function GET(req:NextRequest){try{
  const user=await owner(req.headers.get('authorization'));if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});

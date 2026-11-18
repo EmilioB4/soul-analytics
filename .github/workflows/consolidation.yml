@@ -1,0 +1,32 @@
+name: Main-site consolidation and private Whatnot connections
+on:
+  pull_request:
+    paths:
+      - 'scripts/consolidate-supabase.cjs'
+      - 'scripts/lib/consolidation.cjs'
+      - 'scripts/validate-consolidation.cjs'
+      - 'scripts/validate-whatnot-connections.cjs'
+      - 'lib/whatnot*'
+      - 'app/Whatnot*'
+      - 'app/api/whatnot/**'
+      - 'app/api/connections/whatnot/**'
+      - 'app/api/orders/auto-sync/**'
+      - 'app/api/automation/**'
+      - 'supabase/whatnot_connections.sql'
+      - '.github/workflows/consolidation.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-package-lock
+      - run: node --experimental-strip-types --test tests/*.test.mjs
+      - run: node scripts/validate-consolidation.cjs
+      - run: node scripts/validate-whatnot-connections.cjs
+      - run: npm run test:isolation
+      - run: npm run build

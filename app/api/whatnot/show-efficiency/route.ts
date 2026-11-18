@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {owner} from '../../../../lib/tiktok';
-import {callWhatnot} from '../../../../lib/whatnot';
+import {callWhatnot,configured} from '../../../../lib/whatnot';
 export const runtime='nodejs';
 function obj(v:unknown):Record<string,unknown>{return v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};}
 export async function GET(req:NextRequest){
@@ -8,8 +8,8 @@ export async function GET(req:NextRequest){
   const user=await owner(req.headers.get('authorization'));if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
   const id=req.nextUrl.searchParams.get('show_id')||'';
   if(!/^[a-zA-Z0-9_-]{1,128}$/.test(id))return NextResponse.json({error:'Invalid show ID'},{status:400});
-  if(process.env.WHATNOT_OWNER_ID!==user.id)return NextResponse.json({error:'Connect your own Whatnot account before requesting analytics.'},{status:403});
-  const data=obj(await callWhatnot(`/analytics/shows/${encodeURIComponent(id)}`));
+  if(!await configured(user.id))return NextResponse.json({error:'Connect your own Whatnot account before requesting analytics.'},{status:403});
+  const data=obj(await callWhatnot(user.id,`/analytics/shows/${encodeURIComponent(id)}`));
   const a=obj(data.data||data),minutes=typeof a.stream_minutes==='number'&&a.stream_minutes>0?a.stream_minutes:null;
   const count=typeof a.orders_count==='number'?a.orders_count:null;
   return NextResponse.json({minutes,startAt:typeof a.start_time==='string'?a.start_time:null,

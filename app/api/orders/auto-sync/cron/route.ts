@@ -13,7 +13,6 @@ export async function GET(req:NextRequest){
    try{
     let count=0;
     if(job.platform==='whatnot'){
-     if(process.env.WHATNOT_OWNER_ID!==job.owner_id)throw Error('Whatnot owner configuration does not match.');
      const result=await importWhatnot(job.owner_id);if(result.incomplete)throw Error('Whatnot pagination incomplete; manual backfill required.');count=result.ordersProcessed;
     }else{
      const startDate=new Date(Date.now()-30*86400000).toISOString().slice(0,10);
