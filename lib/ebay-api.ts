@@ -1,6 +1,6 @@
 import {db,encrypt} from './tiktok';
 import {decrypt} from './tiktok-orders';
-import {ebayConfig,ebayScopes} from './ebay-config';
+import {ebayConfig} from './ebay-config';
 export async function ebayTokenRequest(parameters:Record<string,string>){
  const {clientId,clientSecret}=ebayConfig();
  const response=await fetch('https://api.ebay.com/identity/v1/oauth2/token',{method:'POST',headers:{Authorization:'Basic '+Buffer.from(clientId+':'+clientSecret).toString('base64'),'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(parameters),cache:'no-store',redirect:'error',signal:AbortSignal.timeout(12000)});
@@ -23,7 +23,7 @@ export async function ebayAccessToken(ownerId:string){
  if(!Number.isFinite(Date.parse(connection.refresh_expires_at))||Date.parse(connection.refresh_expires_at)<=Date.now())throw Error('eBay authorization expired. Reconnect your account.');
  const lease=crypto.randomUUID(),claim=await client.rpc('claim_ebay_refresh',{p_owner:ownerId,p_version:connection.version,p_token:lease});if(claim.error||!claim.data)throw Error('eBay authorization refresh is already running. Try again shortly.');
  try{
-  const data=await ebayTokenRequest({grant_type:'refresh_token',refresh_token:decrypt(connection.refresh_token_encrypted),scope:ebayScopes.join(' ')});
+  const data=await ebayTokenRequest({grant_type:'refresh_token',refresh_token:decrypt(connection.refresh_token_encrypted)});
   const saved=await client.from('ebay_connections').update({access_token_encrypted:encrypt(data.access_token),access_expires_at:new Date(Date.now()+data.expires_in*1000).toISOString(),...(typeof data.refresh_token==='string'?{refresh_token_encrypted:encrypt(data.refresh_token),...(data.refresh_token_expires_in!==undefined?{refresh_expires_at:new Date(Date.now()+data.refresh_token_expires_in*1000).toISOString()}:{})}:{})}).eq('owner_id',ownerId).eq('version',connection.version).eq('refresh_lock',lease).select('owner_id');
   if(saved.error||saved.data?.length!==1)throw Error('eBay connection changed; retry the request.');return {token:data.access_token as string,accountId:connection.account_id as string};
  }finally{await client.from('ebay_connections').update({refresh_lock:null,refresh_locked_until:null}).eq('owner_id',ownerId).eq('refresh_lock',lease);}
