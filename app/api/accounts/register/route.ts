@@ -15,7 +15,7 @@ export async function POST(req:NextRequest){
   if(existing.data)return NextResponse.json({ready:true,created:false});
   if(process.env.SELF_SERVICE_SIGNUP_ENABLED!=='true')return NextResponse.json({error:'This account needs an invitation. Public signup is not enabled.'},{status:403});
   if(!user.email||!user.email_confirmed_at)return NextResponse.json({error:'Verify your email using the confirmation link before continuing.'},{status:403});
-  const saved=await client.from('profiles').upsert({user_id:user.id},{onConflict:'user_id',ignoreDuplicates:true});
+  const saved=await client.from('profiles').upsert({user_id:user.id,email:user.email},{onConflict:'user_id',ignoreDuplicates:true});
   if(saved.error)throw Error('Profile creation failed');
   return NextResponse.json({ready:true,created:true});
  }catch{return NextResponse.json({error:'Could not prepare your dashboard. Please try again. If this continues, the account database setup needs checking.'},{status:503});}

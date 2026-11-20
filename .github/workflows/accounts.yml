@@ -1,0 +1,23 @@
+name: Account registration validation
+on:
+  pull_request:
+    paths:
+      - 'app/api/accounts/**'
+      - 'supabase/multiuser_foundation.sql'
+      - 'tests/account-registration.test.mjs'
+      - 'scripts/validate-multiuser-isolation.cjs'
+      - '.github/workflows/accounts.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-package-lock
+      - run: node --experimental-strip-types --test tests/account-registration.test.mjs
+      - run: npm run test:isolation
+      - run: npm run build
