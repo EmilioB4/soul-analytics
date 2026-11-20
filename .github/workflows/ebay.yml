@@ -26,8 +26,9 @@ jobs:
         with:
           node-version: 22
       - run: npm install --no-package-lock
-      - run: node --experimental-strip-types --test tests/ebay-orders.test.mjs tests/ebay-routes.test.mjs tests/ebay-api.test.mjs tests/connection-checks.test.mjs tests/ebay-deletion.test.mjs
+      - run: node --experimental-strip-types --test tests/ebay-orders.test.mjs tests/ebay-routes.test.mjs tests/ebay-api.test.mjs tests/connection-checks.test.mjs tests/ebay-deletion.test.mjs tests/ebay-finances.test.mjs
       - run: node scripts/validate-ebay.cjs
       - run: node scripts/validate-ebay-deletion.cjs
+      - run: node scripts/validate-ebay-finances.cjs
       - run: npm run test:isolation
       - run: npm run build

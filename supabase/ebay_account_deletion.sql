@@ -32,6 +32,9 @@ begin
  -- Also covers retained history for sellers disconnected before the notice arrived.
  delete from ebay_orders where account_id=p_account;
  delete from ebay_product_costs where account_id=p_account;
+ -- Preserve full cleanup when this earlier migration is rerun after finance setup.
+ if to_regclass('public.ebay_transactions') is not null then execute 'delete from public.ebay_transactions where account_id=$1' using p_account;end if;
+ if to_regclass('public.ebay_finance_syncs') is not null then execute 'delete from public.ebay_finance_syncs where account_id=$1' using p_account;end if;
 end $$;
 revoke all on function public.guard_deleted_ebay_account(),public.delete_ebay_account_data(text) from public,anon,authenticated;
 grant execute on function public.delete_ebay_account_data(text) to service_role;
