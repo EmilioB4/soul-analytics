@@ -1,4 +1,6 @@
-# eBay connection and initial PNL dashboard
+# eBay connection and PNL dashboard
+
+The financial-accounting update supersedes the initial order-only estimate below. Follow [eBay accounting setup](ebay-accounting.md) to install the finance migration and reconnect for finance permission. The current UI uses financial posting dates, imports actual account charges and labels, and offers separate manual postage/packaging costs. The historical initial-tracker notes below describe its original scope.
 
 This adds a dedicated eBay Overview plus Connect eBay cards in both the overview and Settings → Connections. Each user authorizes their own seller account on eBay. No seller pastes an access token into Soul or gets access to Vercel.
 

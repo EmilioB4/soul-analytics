@@ -12,8 +12,9 @@ export async function ebayTokenRequest(parameters:Record<string,string>){
 export async function ebayGet(path:string,token:string,timeout=12000){
  const url=new URL(path,'https://api.ebay.com');
  if(!['https://api.ebay.com','https://apiz.ebay.com'].includes(url.origin)||url.username||url.password||url.hash)throw Error('Invalid eBay API origin.');
- const response=await fetch(url,{headers:{Authorization:'Bearer '+token,Accept:'application/json'},cache:'no-store',redirect:'error',signal:AbortSignal.timeout(timeout)});
+ const response=await fetch(url,{headers:{Authorization:'Bearer '+token,Accept:'application/json','X-EBAY-C-MARKETPLACE-ID':'EBAY_US'},cache:'no-store',redirect:'error',signal:AbortSignal.timeout(timeout)});
  if(!response.ok)throw Error(response.status===401?'eBay authorization expired. Reconnect your account.':response.status===403?'eBay denied access. Reconnect and approve the requested permissions.':response.status===429?'eBay rate limit reached. Try again later.':'eBay request failed (HTTP '+response.status+').');
+ if(response.status===204)return {transactions:[],total:0};
  return response.json();
 }
 export async function ebayAccessToken(ownerId:string){
