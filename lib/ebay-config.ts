@@ -1,5 +1,5 @@
 import {payoutSiteUrl} from './payout-brand';
-export const ebayScopes=['https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly','https://api.ebay.com/oauth/api_scope/commerce.identity.readonly','https://api.ebay.com/oauth/api_scope/sell.finances'];
+export const ebayScopes=['https://api.ebay.com/oauth/api_scope','https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly','https://api.ebay.com/oauth/api_scope/commerce.identity.readonly','https://api.ebay.com/oauth/api_scope/sell.finances'];
 export function ebayConfig(){
  const clientId=process.env.EBAY_CLIENT_ID,clientSecret=process.env.EBAY_CLIENT_SECRET,ruName=process.env.EBAY_RUNAME;
  const origin=process.env.EBAY_APP_URL||payoutSiteUrl();

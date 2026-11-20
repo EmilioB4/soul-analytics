@@ -17,7 +17,7 @@ export default function WalmartDailySummary(){
  async function save(){setBusy(true);try{const result=await request({enabled,useSaleWebhook:reuse,...(!reuse&&webhook.trim()?{webhook:webhook.trim()}:{})});setNotice({id:Date.now(),title:'Daily summary saved',text:result.warning||result.message});setWebhook('');setEditing(false);await load(true);}catch(e){setNotice({id:Date.now(),title:'Could not save summary',text:e instanceof Error?e.message:'Try again.',error:true});}finally{setBusy(false);}}
  const unhealthy=data.health?.timedOut||(data.health?.httpStatus!=null&&data.health.httpStatus>=400);
  return <section className="surface settingsPanel"><AuthNotice notice={notice}/><div className="surfaceHeader"><div><div className="eyebrow">DISCORD / DAILY SALES</div><h2>Walmart daily summary</h2><p className="muted">Revenue, estimated profit and units sold in one compact report. No product images.</p></div><span className={data.settings?.enabled?'connectBadge connected':'connectBadge'}>{data.settings?.enabled?'Enabled':'Off'}</span></div>
- <div className="dailySummarySchedule"><strong>11:59 PM every day</strong><span className="muted">America/New_York · adjusts for daylight saving</span></div>
+ <div className="dailySummarySchedule"><strong>11:59 PM every day</strong><span className="muted">Eastern time · adjusts for daylight saving</span></div>
  {error&&<p className="alertBox" role="alert">{error}</p>}
  <div style={{display:'grid',gap:18,marginTop:20}}>
  <label><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)}/> Enable automatic daily sales summary</label>

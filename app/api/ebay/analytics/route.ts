@@ -2,6 +2,7 @@ import {NextRequest,NextResponse} from 'next/server';
 import {owner,db} from '../../../../lib/tiktok';
 import {summarizeEbay} from '../../../../lib/ebay-orders';
 import {summarizeFinances,type AccountingOrder,type EbayTransaction} from '../../../../lib/ebay-finances';
+import {buildEbaySeries} from '../../../../lib/ebay-series';
 import {walmartDateRange,newYorkMidnight,type WalmartPeriod} from '../../../../lib/walmart-period';
 export const runtime='nodejs';
 export async function GET(req:NextRequest){try{
@@ -20,5 +21,5 @@ export async function GET(req:NextRequest){try{
  const requiredEnd=Math.min(Date.parse(newYorkMidnight(nextDay.toISOString().slice(0,10)))-1,Date.now()-300000);
  const covered=!!sync&&Date.parse(sync.start_at)<=Date.parse(newYorkMidnight(range.start))&&Date.parse(sync.end_at)>=requiredEnd;
  const accounting=summarizeFinances(transactions,raw as AccountingOrder[],costs,range.start,range.end,covered);
- return NextResponse.json({connected:true,orders,costs,range,lastSync:connection.data.last_sync_at,financeSync:sync,accounting,transactions:transactions.filter(t=>day(t.date)>=range.start&&day(t.date)<=range.end).sort((a,b)=>b.date.localeCompare(a.date)),totals:summarizeEbay(orders,costs)});
+ return NextResponse.json({connected:true,orders,costs,range,lastSync:connection.data.last_sync_at,financeSync:sync,accounting,series:buildEbaySeries(transactions,raw as AccountingOrder[],costs,range.start,range.end,accounting.profit!==null),transactions:transactions.filter(t=>day(t.date)>=range.start&&day(t.date)<=range.end).sort((a,b)=>b.date.localeCompare(a.date)),totals:summarizeEbay(orders,costs)});
 }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'eBay overview unavailable.'},{status:503});}}
