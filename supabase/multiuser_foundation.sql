@@ -2,8 +2,11 @@
 -- Existing rows and legacy marketplace bindings are preserved.
 begin;
 create table if not exists public.profiles (
- user_id uuid primary key references auth.users(id) on delete cascade
+ user_id uuid primary key references auth.users(id) on delete cascade,
+ email text
 );
+-- Some existing deployments already require email; preserve their constraint.
+alter table public.profiles add column if not exists email text;
 alter table public.profiles enable row level security;
 -- Admission is controlled by the operator, never browser signup or user metadata.
 revoke all on public.profiles from public, anon, authenticated;
