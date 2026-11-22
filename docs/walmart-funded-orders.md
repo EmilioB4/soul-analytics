@@ -38,3 +38,9 @@ The old imports remain unchanged until re-sync. Actual settlement fees, refunds,
 - Daily-summary checks retain existing accounting behavior and withhold profit for incentive review.
 
 Official sources: [Orders API incentiveInfo parameter and response schema](https://developer.walmart.com/us-marketplace/reference/getallorders), [Walmart-funded incentives and seller payment explanation](https://developer.walmart.com/us-marketplace/docs/price-incentives-overview).
+
+## Signed incentive amounts
+
+Walmart-funded incentive amounts may be represented as a signed discount. For explicit Walmart-funded orders only, both +10 and -10 are normalized to a $10 funded amount and must still reconcile to the order-time original price. Negative merchandise, shipping, tax or original-price values remain invalid. No settlement posting delay is required for this order-time calculation.
+
+New syncs save only the original-price/incentive amount and currency as pricing evidence, including the original sign, plus a structured mismatch reason. Buyer names, addresses and other raw payload fields are not retained. Unresolved rows show Incentive data mismatch and an expandable View incentive data section; this is an importer/source-data diagnostic, not a Walmart funding approval status. Older rows need re-sync. No new SQL is needed once walmart_order_pricing.sql has been installed.
