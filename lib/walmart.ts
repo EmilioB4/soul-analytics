@@ -22,5 +22,6 @@ export function walmartOrdersUrl(since: string, cursor = '', shipNodeType: 'Sell
     for (const [key, value] of params) url.searchParams.set(key, value);
   } else url.searchParams.set('nextCursor', cursor);
   url.searchParams.set('shipNodeType', shipNodeType);
+  url.searchParams.set('incentiveInfo','true');
   return url;
 }

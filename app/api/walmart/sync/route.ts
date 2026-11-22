@@ -1,4 +1,5 @@
 import {saleTimestamp,saleImage,type WalmartSaleEvent} from '../../../../lib/walmart-sale-message';
+import {walmartLinePricing} from '../../../../lib/walmart-order-pricing';
 import {walmartAccessToken} from '../../../../lib/walmart-api';
 import {NextRequest,NextResponse} from 'next/server';
 import {syncRequestOwner} from '../../../../lib/order-sync-auth';
@@ -11,7 +12,6 @@ type Obj=Record<string,unknown>;
 const obj=(x:unknown):Obj=>x!==null&&typeof x==='object'&&!Array.isArray(x)?x as Obj:{};
 const arr=(x:unknown):unknown[]=>Array.isArray(x)?x:x==null?[]:[x];
 const str=(x:unknown)=>String(x??'');
-const money=(x:unknown)=>{const v=obj(x);const n=Number(v.amount??v.value??x);return Number.isFinite(n)?n:0;};
 const errorText=(x:unknown)=>JSON.stringify(x).slice(0,700);
 export async function POST(req:NextRequest){
  try{
@@ -53,11 +53,10 @@ export async function POST(req:NextRequest){
      const statuses=arr(obj(line.orderLineStatuses).orderLineStatus);
      const cancelled=statuses.length>0&&statuses.every(s=>str(obj(s).status).toLowerCase().includes('cancel'));
      if(cancelled)continue;
-     const charges=arr(obj(line.charges).charge);
-     const price=charges.filter(c=>str(obj(c).chargeType).toUpperCase()==='PRODUCT').reduce((sum:number,c:unknown)=>sum+money(obj(c).chargeAmount),0);
+     const {revenue:price,pricing}=walmartLinePricing(line,qty,order.customerOrderId);
      const method=str(obj(order.shipNode).type||order.fulfillmentMethod||line.fulfillmentMethod||obj(order.shippingInfo).fulfillmentMethod||obj(order.shippingInfo).fulfillmentType||shipNodeType).toUpperCase();
      const fulfillment=method.includes('WFS')||method.includes('WALMART')?'WFS':method.includes('SELLER')?'SF':'Unknown';
-     rows.push({owner_id:user.id,order_id:po,line_id:str(line.lineNumber??index+1),order_date:date,sku:str(item.sku||line.sku||'UNKNOWN'),product_name:str(item.productName||item.sku||'Unknown product'),fulfillment,quantity:qty,revenue:price});
+     rows.push({owner_id:user.id,order_id:po,line_id:str(line.lineNumber??index+1),order_date:date,sku:str(item.sku||line.sku||'UNKNOWN'),product_name:str(item.productName||item.sku||'Unknown product'),fulfillment,quantity:qty,revenue:price,pricing});
      if(req.headers.get('x-soul-sales-lease'))saleCandidates.push({order_id:po,line_id:str(line.lineNumber??index+1),sku:str(item.sku||line.sku||'UNKNOWN'),product_name:str(item.productName||item.sku||'Unknown product'),quantity:qty,revenue:price,fulfillment,sold_at:saleTimestamp(order.orderDate??order.createdDate),image:saleImage(item.imageUrl||item.primaryImageUrl)});
     }
    }
@@ -75,7 +74,7 @@ export async function POST(req:NextRequest){
   }
   if(rows.length===0)return NextResponse.json({orders:diagnostics.rawOrders,lines:0,feeSync:false,warning:'Walmart returned orders, but none produced importable lines. See diagnostics.',diagnostics:syncDiagnostics});
   const database=db();
-  for(let i=0;i<rows.length;i+=200){const {error}=await database.from('walmart_sales').upsert(rows.slice(i,i+200),{onConflict:'owner_id,order_id,line_id'});if(error)throw Error(`Walmart database save failed: ${error.message}`);}
+  for(let i=0;i<rows.length;i+=200){const {error}=await database.from('walmart_sales').upsert(rows.slice(i,i+200),{onConflict:'owner_id,order_id,line_id'});if(error)throw Error(`Walmart database save failed. Run supabase/walmart_order_pricing.sql before syncing. ${error.message}`);}
   return NextResponse.json({...(req.headers.get('x-soul-sales-lease')?{saleCandidates}:{}),orders:diagnostics.rawOrders,lines:rows.length,feeSync:false,diagnostics:syncDiagnostics,...(incomplete?{warning:'Reached the 15-page limit for a fulfillment type. More Walmart orders remain; the import is incomplete.'}:{}),note:'WFS settlement fees are not imported by this endpoint.'});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Walmart sync failed'},{status:502});}
 }

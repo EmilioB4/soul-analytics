@@ -1,0 +1,32 @@
+name: Walmart order pricing validation
+on:
+  pull_request:
+    paths:
+      - 'app/WalmartDashboard.tsx'
+      - 'app/WalmartDailyOrders.tsx'
+      - 'app/api/walmart/sync/**'
+      - 'lib/walmart.ts'
+      - 'lib/walmart-order-pricing.ts'
+      - 'lib/walmart-daily-orders.ts'
+      - 'lib/walmart-daily-summary.ts'
+      - 'supabase/walmart_order_pricing.sql'
+      - 'tests/walmart-order-pricing.test.mjs'
+      - 'tests/walmart-pricing-sync.test.mjs'
+      - 'scripts/validate-walmart-order-pricing.cjs'
+      - '.github/workflows/walmart-orders.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-package-lock
+      - run: node --experimental-strip-types --test tests/walmart.test.mjs tests/walmart-order-pricing.test.mjs tests/walmart-pricing-sync.test.mjs
+      - run: node scripts/validate-walmart-order-pricing.cjs
+      - run: node scripts/validate-walmart-daily-summary.cjs
+      - run: npm run test:isolation
+      - run: npm run build

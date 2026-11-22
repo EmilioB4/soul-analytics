@@ -26,3 +26,5 @@ const message=dailySummaryMessage(summary,'https://example.test');assert.deepEqu
 assert.equal(message.embeds[0].fields[1].value,'$33.50');
 assert.equal(dailySummaryMessage({...summary,profit:null},null).embeds[0].fields[1].value,'Unavailable');
 console.log('Daily summary date, financial and message checks passed.');
+
+assert.equal(calculateDailySummary({...input,sales:[{...sale,pricing:{status:"review"}}]}).profit,null);
