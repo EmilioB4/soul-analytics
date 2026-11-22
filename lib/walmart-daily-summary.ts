@@ -2,6 +2,7 @@ import {allocateWalmartFees,settlementFees,type WalmartSale,type WalmartFee,type
 import {feeReserves,type FeeProfile} from './walmart-fee-reserves';
 import {walmartRefundAccounting} from './walmart-refund-accounting';
 import type {WalmartReturn,ReturnRecovery} from './walmart-returns';
+import {walmartPricingReview,type WalmartOrderPricing} from './walmart-order-pricing';
 import {walmartToday} from './walmart-period';
 export const summaryTimezone='America/New_York';
 export function dailySummaryDay(now=new Date()){
@@ -10,7 +11,7 @@ export function dailySummaryDay(now=new Date()){
  return parts.hour==='23'&&parts.minute==='59'?day:new Date(Date.parse(day+'T12:00:00Z')-86400000).toISOString().slice(0,10);
 }
 export type DailySummary={day:string;revenue:number;profit:number|null;units:number;orders:number;refunds:number;estimatedFees:number;partial:boolean;reason:string};
-export type DailyInput={day:string;sales:(WalmartSale&{quantity:number;revenue:number})[];fees:WalmartFee[];settlements:WalmartTransaction[];costs:{sku:string;unit_cogs:number}[];profiles:FeeProfile[];returns:WalmartReturn[];recoveries:ReturnRecovery[];financeReady:boolean;returnsReady:boolean;costsReady:boolean;recoveriesReady:boolean};
+export type DailyInput={day:string;sales:(WalmartSale&{quantity:number;revenue:number;pricing?:WalmartOrderPricing|null})[];fees:WalmartFee[];settlements:WalmartTransaction[];costs:{sku:string;unit_cogs:number}[];profiles:FeeProfile[];returns:WalmartReturn[];recoveries:ReturnRecovery[];financeReady:boolean;returnsReady:boolean;costsReady:boolean;recoveriesReady:boolean};
 export function calculateDailySummary(input:DailyInput):DailySummary{
  const {day}=input,round=(n:number)=>Math.round((n+Number.EPSILON)*100)/100;
  const sales=input.sales.map(s=>({...s,quantity:Number(s.quantity),revenue:Number(s.revenue),order_date:/^\d{4}-\d{2}-\d{2}$/.test(s.order_date)?s.order_date:walmartToday(new Date(s.order_date))}));
@@ -23,9 +24,10 @@ export function calculateDailySummary(input:DailyInput):DailySummary{
  const reserves=feeReserves(selected,actual.included,input.profiles,sales,allFees);
  // Missing recovery records do not make original sold COGS unknown. Keep those
  // costs in the estimate and never invent a returned-inventory credit.
- const complete=input.financeReady&&input.returnsReady&&input.costsReady&&!missing&&!unknown;
+ const pricingReview=walmartPricingReview(selected,input.settlements);
+ const complete=!pricingReview&&input.financeReady&&input.returnsReady&&input.costsReady&&!missing&&!unknown;
  const cogs=selected.reduce((n,s)=>n+s.quantity*(costs.get(s.sku)||0),0)-(input.recoveriesReady?refunds.recoveredCost:0);
- const reason=!input.costsReady||missing?'Product costs are missing':!input.returnsReady?'Refund data unavailable':!input.financeReady?'Fee data unavailable':unknown?'Unclassified settlement charges':!input.recoveriesReady?'Return credits unavailable; original COGS retained'+(reserves.total?'; includes estimated fees':''):reserves.total?'Includes estimated fees':'Provisional; unrecorded costs may remain';
+ const reason=pricingReview?'Walmart-funded pricing needs review':!input.costsReady||missing?'Product costs are missing':!input.returnsReady?'Refund data unavailable':!input.financeReady?'Fee data unavailable':unknown?'Unclassified settlement charges':!input.recoveriesReady?'Return credits unavailable; original COGS retained'+(reserves.total?'; includes estimated fees':''):reserves.total?'Includes estimated fees':'Provisional; unrecorded costs may remain';
  const profit=complete?round(revenue-cogs-actual.total-reserves.total):null;
  if(!Number.isFinite(revenue)||(profit!==null&&!Number.isFinite(profit)))throw Error('Invalid accounting amounts; summary not sent.');
  return {day,revenue,profit,units:selected.reduce((n,s)=>n+s.quantity,0),orders:new Set(selected.map(s=>s.order_id)).size,refunds:round(refunds.total),estimatedFees:reserves.total,partial:!complete||!input.recoveriesReady||reserves.total>0,reason};
