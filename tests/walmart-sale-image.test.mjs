@@ -24,12 +24,12 @@ test('listing image enrichment is cached per SKU and owner and reaches the Disco
 test('catalog fallback uses a listing identifier and verifies Walmart item ID',async()=>{
  const s=setup({listing:{ItemResponse:[{sku:sale.sku,gtin:'00012345678905',itemId:123}]},catalog:{items:[{itemId:123,images:[{url:image}]}]}});
  const result=await s.saleImageResolver('alice',Date.now()+10000)(sale);assert.equal(result.image,image);assert.equal(s.calls[2].path,'/v3/items/walmart/search?gtin=00012345678905');
- const wrong=setup({listing:{ItemResponse:[{sku:'wrong',gtin:'00012345678905',itemId:123}]}});assert.equal((await wrong.saleImageResolver('alice',Date.now()+10000)(sale)).image,undefined);assert.equal(wrong.calls.length,2);
+ const wrong=setup({listing:{ItemResponse:[{sku:'wrong',gtin:'00012345678905',itemId:123}]}});assert.equal((await wrong.saleImageResolver('alice',Date.now()+10000)(sale)).image,null);assert.equal(wrong.calls.length,2);
 });
-test('image/API failure or expired budget does not block a sale; existing order images avoid extra calls',async()=>{
+test('image/API failure or expired budget does not block a sale; listing images override existing images and exact order images remain a safe fallback',async()=>{
  const failed=setup({fail:true});assert.equal((await failed.saleImageResolver('alice',Date.now()+10000)(sale)).product_name,'Shrek');
- const expired=setup();assert.equal((await expired.saleImageResolver('alice',0)(sale)).image,undefined);assert.equal(expired.calls.length,0);
- const existing=setup();assert.equal((await existing.saleImageResolver('alice',Date.now()+10000)({...sale,image})).image,image);assert.equal(existing.calls.length,0);
+ const expired=setup();assert.equal((await expired.saleImageResolver('alice',0)(sale)).image,null);assert.equal(expired.calls.length,0);
+ const fresh='https://i5.walmartimages.com/asr/live-listing.jpg';const existing=setup({listing:{ItemResponse:{sku:sale.sku,primaryImageUrl:fresh}}});assert.equal((await existing.saleImageResolver('alice',Date.now()+10000)({...sale,image})).image,fresh);assert.equal(existing.calls.length,2);const unavailable=setup({fail:true});assert.equal((await unavailable.saleImageResolver('alice',Date.now()+10000)({...sale,image})).image,image);
 });
 
 test('missing image identifiers and API failures are reported without blocking the sale',async()=>{
