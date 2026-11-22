@@ -2,7 +2,7 @@ import {walmartAccessToken,walmartReport} from './walmart-api';
 import {saleImage,type WalmartSaleEvent} from './walmart-sale-message';
 const object=(v:unknown):Record<string,unknown>=>v!==null&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};
 function listingItem(response:unknown,sku:string){
- const root=object(response),items=Array.isArray(root.ItemResponse)?root.ItemResponse:[root];
+ const root=object(response),items=Array.isArray(root.ItemResponse)?root.ItemResponse:root.ItemResponse?[root.ItemResponse]:[root];
  return items.map(object).find(row=>row.sku===sku);
 }
 function itemImage(item:Record<string,unknown>){
@@ -28,8 +28,8 @@ export function saleImageResolver(ownerId:string,deadline:number,onIssue:(messag
  const cache=new Map<string,Promise<string|null>>();
  const remaining=()=>Math.max(1,Math.min(3000,deadline-Date.now()));
  return async(sale:WalmartSaleEvent):Promise<WalmartSaleEvent>=>{
-  const existing=saleImage(sale.image);if(existing)return {...sale,image:existing};
-  if(!sale.sku||sale.sku==='UNKNOWN'||Date.now()>=deadline)return sale;
+  const orderImage=saleImage(sale.image);
+  if(!sale.sku||sale.sku==='UNKNOWN'||Date.now()>=deadline)return {...sale,image:orderImage};
   if(!cache.has(sale.sku))cache.set(sale.sku,(async()=>{
    try{
     access??=walmartAccessToken(ownerId,remaining());const token=await access;
@@ -53,6 +53,6 @@ export function saleImageResolver(ownerId:string,deadline:number,onIssue:(messag
     return null;
    }
   })());
-  const image=await cache.get(sale.sku);return image?{...sale,image}:sale;
+  const image=await cache.get(sale.sku);return {...sale,image:image??orderImage};
  };
 }

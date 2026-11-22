@@ -37,7 +37,7 @@ test('explicit fulfillment filters include WFS on first and subsequent pages', (
   assert.equal(walmartOrdersUrl('since').searchParams.get('shipNodeType'), 'SellerFulfilled');
   for (const cursor of ['', '?limit=200&nextCursor=abc%2Bdef%3D']) {
     const url = walmartOrdersUrl('since', cursor, 'WFSFulfilled');
-    assert.equal(url.searchParams.get('shipNodeType'), 'WFSFulfilled');assert.equal(url.searchParams.get('incentiveInfo'),'true');
+    assert.equal(url.searchParams.get('shipNodeType'), 'WFSFulfilled');assert.equal(url.searchParams.get('incentiveInfo'),'true');assert.equal(url.searchParams.get('productInfo'),'true');
   }
 });
 
