@@ -1,0 +1,25 @@
+name: Marketplace calculator validation
+on:
+  pull_request:
+    paths:
+      - 'app/WalmartWfsCalculator*'
+      - 'lib/walmart-wfs-calculator.ts'
+      - 'app/EbayFeeCalculator.tsx'
+      - 'lib/ebay-fee-calculator.ts'
+      - 'tests/ebay-fee-calculator.test.mjs'
+      - 'lib/walmart-fee-reserves.ts'
+      - 'tests/walmart-wfs-calculator.test.mjs'
+      - '.github/workflows/wfs-calculator.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-package-lock
+      - run: node --experimental-strip-types --test tests/ebay-fee-calculator.test.mjs tests/walmart-wfs-calculator.test.mjs tests/walmart-fee-reserves.test.mjs tests/walmart-fee-assumptions-api.test.mjs
+      - run: npm run build
