@@ -1,4 +1,4 @@
-export type WalmartSaleEvent={order_id:string;line_id:string;sku:string;product_name:string;quantity:number;revenue:number;fulfillment:string;sold_at:string|null;image?:string|null};
+export type WalmartSaleEvent={order_id:string;line_id:string;sku:string;product_name:string;quantity:number;revenue:number;fulfillment:string;sold_at:string|null;image?:string|null;image_source?:'order_primary'};
 const usd=(value:number)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(value);
 export function saleTimestamp(value:unknown){if(typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value))return null;const n=typeof value==='string'&&/^\d+$/.test(value)?Number(value):value;const date=new Date(n as string|number);return value!=null&&Number.isFinite(date.getTime())?date.toISOString():null;}
 export function saleImage(value:unknown){if(typeof value!=='string')return null;try{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password&&(/(^|\.)walmartimages\.com$/.test(url.hostname)||url.hostname==='i5.walmartimages.com')?url.toString():null;}catch{return null;}}
@@ -9,7 +9,7 @@ export function walmartSaleMessage(sale:WalmartSaleEvent,siteUrl:string|null){
  const markdown=(value:string,max=1200)=>clean(value,max).replace(/([\\*_~|<>\[\]()])/g,'\\$1');
  const name=markdown(sale.product_name),order=markdown(sale.order_id,200);
  const price=sale.quantity>1?`**${usd(sale.revenue)}**\n${usd(sale.revenue/sale.quantity)} each`:`**${usd(sale.revenue)}**`;
- return {username:'SOUL',...(logo?{avatar_url:logo}:{}),allowed_mentions:{parse:[]},embeds:[{
+ return {username:'Sale alert',...(logo?{avatar_url:logo}:{}),allowed_mentions:{parse:[]},embeds:[{
   author:{name:'🛒 New Walmart Sale'},
   description:`**${name}**\nOrder ||${order}|| from **Walmart** just sold.`,
   color:0x22c55e,...(image?{thumbnail:{url:image}}:{}),

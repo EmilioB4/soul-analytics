@@ -57,7 +57,7 @@ export async function POST(req:NextRequest){
      const method=str(obj(order.shipNode).type||order.fulfillmentMethod||line.fulfillmentMethod||obj(order.shippingInfo).fulfillmentMethod||obj(order.shippingInfo).fulfillmentType||shipNodeType).toUpperCase();
      const fulfillment=method.includes('WFS')||method.includes('WALMART')?'WFS':method.includes('SELLER')?'SF':'Unknown';
      rows.push({owner_id:user.id,order_id:po,line_id:str(line.lineNumber??index+1),order_date:date,sku:str(item.sku||line.sku||'UNKNOWN'),product_name:str(item.productName||item.sku||'Unknown product'),fulfillment,quantity:qty,revenue:price,pricing});
-     if(req.headers.get('x-soul-sales-lease'))saleCandidates.push({order_id:po,line_id:str(line.lineNumber??index+1),sku:str(item.sku||line.sku||'UNKNOWN'),product_name:str(item.productName||item.sku||'Unknown product'),quantity:qty,revenue:price,fulfillment,sold_at:saleTimestamp(order.orderDate??order.createdDate),image:saleImage(item.imageUrl||item.primaryImageUrl)});
+     if(req.headers.get('x-soul-sales-lease'))saleCandidates.push({order_id:po,line_id:str(line.lineNumber??index+1),sku:str(item.sku||line.sku||'UNKNOWN'),product_name:str(item.productName||item.sku||'Unknown product'),quantity:qty,revenue:price,fulfillment,sold_at:saleTimestamp(order.orderDate??order.createdDate),image:saleImage(item.primaryImageUrl),image_source:'order_primary'});
     }
    }
    const meta=obj(list.meta??root.meta);

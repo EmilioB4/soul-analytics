@@ -4,6 +4,8 @@ on:
     paths:
       - 'lib/walmart-daily*'
       - 'lib/walmart-sale*'
+      - 'lib/walmart-product-image.ts'
+      - 'tests/walmart-product-image.test.mjs'
       - 'tests/walmart-sale*'
       - 'app/api/notifications/sales/**'
       - 'app/WalmartDailySummary.tsx'
@@ -23,7 +25,7 @@ jobs:
         with:
           node-version: 22
       - run: npm install --no-package-lock
-      - run: node --experimental-strip-types --test tests/walmart-sale-image.test.mjs tests/walmart-sale-message.test.mjs tests/walmart-sale-routes.test.mjs
+      - run: node --experimental-strip-types --test tests/walmart-product-image.test.mjs tests/walmart-sale-image.test.mjs tests/walmart-sale-message.test.mjs tests/walmart-sale-routes.test.mjs
       - run: node scripts/validate-walmart-daily-summary.cjs
       - run: node scripts/validate-walmart-daily-sql.cjs
       - run: npm run test:isolation
