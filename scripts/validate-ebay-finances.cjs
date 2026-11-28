@@ -4,7 +4,7 @@ const {PGlite}=require(process.env.PGLITE_MODULE||'@electric-sql/pglite'),fs=req
  const alice='11111111-1111-4111-8111-111111111111',bob='22222222-2222-4222-8222-222222222222',token='33333333-3333-4333-8333-333333333333',start='2026-11-01T00:00:00Z',end='2026-11-30T23:59:59Z';
  for(const id of [alice,bob]){await db.query('insert into auth.users values($1)',[id]);await db.query('insert into profiles values($1)',[id]);}
  const sql=file=>fs.readFileSync(path.join(__dirname,'../supabase/'+file),'utf8');
- await db.exec(sql('ebay_setup.sql'));await db.exec(sql('ebay_account_deletion.sql'));await db.exec(sql('ebay_finances.sql'));await db.exec(sql('ebay_finances.sql'));
+ await db.exec(sql('ebay_setup.sql'));await db.exec(sql('ebay_account_deletion.sql'));await db.exec(sql('ebay_finances.sql'));await db.exec(sql('ebay_finances.sql'));await db.exec(sql('ebay_finance_coverage_fix.sql'));await db.exec(sql('ebay_finance_coverage_fix.sql'));
  for(const [id,account] of [[alice,'seller-a'],[bob,'seller-b']])await db.query("select save_ebay_connection($1,$2,'username','access','refresh',now()+interval '1 hour',now()+interval '1 year')",[id,account]);
  const claim=(id,account)=>db.query('select claim_ebay_sync($1,$2,$3)',[id,account,token]);
  const save=(id,account,rows)=>db.query('select save_ebay_finances($1,$2,$3,$4,$5,$6)',[id,account,token,start,end,JSON.stringify(rows)]);

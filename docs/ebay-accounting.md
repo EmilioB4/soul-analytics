@@ -51,3 +51,13 @@ npm run build
 Browser checks use synthetic authenticated users and mocked APIs, not a real eBay account. A live seller reconnect and authenticated finance sync still need hosted validation after deployment.
 
 Official sources: [Finances getTransactions and schemas](https://developer.ebay.com/api-docs/master/sell/finances/openapi/3/sell_finances_v1_oas3.json), [financial transaction guide](https://developer.ebay.com/api-docs/sell/static/finances/transaction-info.html), [shipping-label support](https://developer.ebay.com/api-docs/sell/finances/release-notes-archive.html), [digital signatures](https://developer.ebay.com/develop/guides/digital-signatures-for-apis).
+
+## Fix for wider-period profit after a Today sync
+
+Existing installations: after deploying this update, run `supabase/ebay_finance_coverage_fix.sql` once in the main site's Supabase SQL Editor. It only replaces the existing owner/lease-bound save function and preserves orders, saved costs and financial transactions. New installations receive the same fix from `ebay_finances.sql`.
+
+Then select the widest period you want to restore (for example Last 30 days) and click Sync eBay once. Prior versions overwrote their coverage metadata on every sync; existing transaction dates alone cannot safely reconstruct that lost completeness record. A successful full-period import restores it.
+
+Overlapping successful imports now retain the union of their coverage, while still replacing financial transactions only inside the actually fetched window. A Today sync therefore retains the previously imported 7/30-day history. When a new import starts after the previous end, the importer fetches the intervening gap (within the supported 370-day limit) before extending coverage. Disjoint windows never claim their missing gap was imported. Failed imports leave existing rows and coverage intact. Owner/account/lease checks, role denial and deletion guards remain enforced.
+
+If legitimate missing costs or financial issues still block profit, their exact reasons are now shown above the overview metrics. They are not silently ignored. Database regression tests perform a seven-day import, a Today refresh, and assert separate Today/Yesterday/7-day profits and matching graph totals, plus rollback, owner isolation and disjoint-window handling.
