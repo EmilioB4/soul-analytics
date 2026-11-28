@@ -29,7 +29,7 @@ export async function fetchFinanceWindow(get:(path:string)=>Promise<any>,start:s
 }
 export function summarizeFinances(transactions:EbayTransaction[],orders:AccountingOrder[],costs:{sku:string;unit_cost:number}[],start:string,end:string,covered:boolean){
  const day=(date:string)=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(date));
- const selected=transactions.filter(t=>day(t.date)>=start&&day(t.date)<=end),issues:string[]=[],byOrder=new Map(orders.map(o=>[o.order_id,o])),saleIds=new Set<string>(),feeGroups=new Map<string,number>();
+ const selected=transactions.filter(t=>day(t.date)>=start&&day(t.date)<=end),issues:string[]=[],warnings:string[]=[],byOrder=new Map(orders.map(o=>[o.order_id,o])),saleIds=new Set<string>(),feeGroups=new Map<string,number>();
  const costMap=new Map(costs.map(c=>[c.sku,Math.round(Number(c.unit_cost)*100)]));
  const money=(n:number)=>n/100;let net=0,sales=0,units=0,cogs=0,externalShipping=0,packaging=0,labelNet=0,nonSaleNet=0,refundNet=0,fees=0,missingCosts=0,missingShipping=0,missingPackaging=0,unmatched=0,unknown=0,conflicts=0;
  if(!covered)issues.push('Sync finances for the full selected period.');
@@ -66,10 +66,18 @@ export function summarizeFinances(transactions:EbayTransaction[],orders:Accounti
  if(awaiting)issues.push(`${awaiting} paid orders await financial sale transactions.`);
  if(missingCosts)issues.push(`${missingCosts} item lines need COGS.`);
  if(missingShipping)issues.push(`${missingShipping} orders need a shipping source and cost.`);
- if(missingPackaging)issues.push(`${missingPackaging} orders need packaging cost (confirm 0 if none).`);
+ if(missingPackaging)warnings.push(`Packaging costs are not entered for ${missingPackaging} orders and are excluded from estimated profit.`);
  if(unmatched)issues.push(`${unmatched} sale/refund transactions need their original order imported.`);
  if(unknown)issues.push(`${unknown} financial transactions need classification.`);
  if(conflicts)issues.push(`${conflicts} orders have both manual postage and eBay labels; select eBay labels to avoid duplicates.`);
  const unique=[...new Set(issues)],profit=unique.length?null:money(net-cogs-externalShipping-packaging);
- return {sales:money(sales),units,orders:saleIds.size,netProceeds:money(net),sellingFees:money(fees),accountCharges:money(nonSaleNet),ebayLabels:money(labelNet),refundsAndDisputes:money(refundNet),cogs:money(cogs),externalShipping:money(externalShipping),packaging:money(packaging),profit,margin:profit!==null&&sales>0?Math.round(profit/money(sales)*10000)/100:null,issues:unique,feeGroups:[...feeGroups].map(([type,value])=>({type,amount:money(value)})),transactionCount:selected.length};
+ return {sales:money(sales),units,orders:saleIds.size,netProceeds:money(net),sellingFees:money(fees),accountCharges:money(nonSaleNet),ebayLabels:money(labelNet),refundsAndDisputes:money(refundNet),cogs:money(cogs),externalShipping:money(externalShipping),packaging:money(packaging),profit,margin:profit!==null&&sales>0?Math.round(profit/money(sales)*10000)/100:null,issues:unique,warnings,feeGroups:[...feeGroups].map(([type,value])=>({type,amount:money(value)})),transactionCount:selected.length};
+}
+
+// A current-day report is a snapshot as of its latest completed sync. Age alone
+// does not erase profit; historical periods still require their full end bound.
+export function financePeriodCovered(sync:{start_at:string;end_at:string}|null,start:string,endExclusive:string,todayStart:string){
+ if(!sync)return false;
+ const requiredEnd=Math.min(Date.parse(endExclusive)-1,Date.parse(todayStart));
+ return Date.parse(sync.start_at)<=Date.parse(start)&&Date.parse(sync.end_at)>=requiredEnd;
 }

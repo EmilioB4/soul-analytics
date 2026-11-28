@@ -2,14 +2,15 @@ import {NextRequest,NextResponse} from 'next/server';
 import {owner,db} from '../../../../../lib/tiktok';
 import {ebayAccessToken,ebayGet} from '../../../../../lib/ebay-api';
 import {fetchFinanceWindow} from '../../../../../lib/ebay-finances';
-import {walmartDateRange,newYorkMidnight,type WalmartPeriod} from '../../../../../lib/walmart-period';
+import {newYorkMidnight} from '../../../../../lib/walmart-period';
+import {ebayDateRange,type EbayPeriod} from '../../../../../lib/ebay-period';
 export const runtime='nodejs';export const maxDuration=60;
 export async function POST(req:NextRequest){
  const user=await owner(req.headers.get('authorization'));if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});
  const client=db(),lease=crypto.randomUUID();let accountId='';
  try{
   const input=await req.json().catch(()=>({})),period=input.period||'30';if(!['today','yesterday','7','30','90','ytd'].includes(period))return NextResponse.json({error:'Invalid period.'},{status:400});
-  const range=walmartDateRange(period as WalmartPeriod),start=newYorkMidnight(range.start),end=new Date().toISOString();
+  const range=ebayDateRange(period as EbayPeriod),start=newYorkMidnight(range.start),end=new Date().toISOString();
   const access=await ebayAccessToken(user.id);accountId=access.accountId;
   const claim=await client.rpc('claim_ebay_sync',{p_owner:user.id,p_account:accountId,p_token:lease});if(claim.error||!claim.data)throw Error('An eBay sync is already running. Try again shortly.');
   const deadline=Date.now()+40000;

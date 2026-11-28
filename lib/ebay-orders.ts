@@ -1,11 +1,11 @@
-export type EbayLine={id:string;sku:string;title:string;quantity:number};
+export type EbayLine={id:string;sku:string;title:string;quantity:number;listingId?:string};
 export type EbayOrder={id:string;createdAt:string;status:string;cancelled:boolean;currency:string;revenue:number;fees:number|null;refundPresent:boolean;lines:EbayLine[]};
 const object=(v:unknown):Record<string,unknown>=>v!==null&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};
 function amount(value:unknown,optional=false){if(value==null&&optional)return 0;const v=object(value),n=Number(v.value);if(v.currency!=='USD'||v.value==null||String(v.value).trim()===''||!Number.isFinite(n))throw Error('eBay import currently supports valid USD amounts only.');return n;}
 export function parseEbayOrder(raw:unknown):EbayOrder{
  const row=object(raw),pricing=object(row.pricingSummary),payment=object(row.paymentSummary),cancel=object(row.cancelStatus);
  if(typeof row.orderId!=='string'||typeof row.creationDate!=='string'||!Number.isFinite(Date.parse(row.creationDate))||!Array.isArray(row.lineItems)||!row.lineItems.length)throw Error('eBay order identifiers or lines are incomplete.');
- const lines=row.lineItems.map(value=>{const line=object(value);if(typeof line.lineItemId!=='string'||!Number.isSafeInteger(line.quantity)||Number(line.quantity)<=0)throw Error('Invalid eBay order line.');return {id:line.lineItemId,sku:typeof line.sku==='string'&&line.sku?line.sku:'item:'+String(line.legacyItemId||line.lineItemId),title:String(line.title||'eBay item').slice(0,400),quantity:Number(line.quantity)};});
+ const lines=row.lineItems.map(value=>{const line=object(value);if(typeof line.lineItemId!=='string'||!Number.isSafeInteger(line.quantity)||Number(line.quantity)<=0)throw Error('Invalid eBay order line.');return {id:line.lineItemId,sku:typeof line.sku==='string'&&line.sku?line.sku:'item:'+String(line.legacyItemId||line.lineItemId),title:String(line.title||'eBay item').slice(0,400),quantity:Number(line.quantity),...(typeof line.legacyItemId==='string'&&/^\d{1,30}$/.test(line.legacyItemId)?{listingId:line.legacyItemId}:{})};});
  // Discounts are signed negative amounts in the Fulfillment API. Taxes and
  // regulatory fees are excluded; this is merchandise + buyer shipping only.
  if(pricing.adjustment!=null&&amount(pricing.adjustment)!==0)throw Error('Adjusted eBay orders require reconciliation; this batch was not imported.');
