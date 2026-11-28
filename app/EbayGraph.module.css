@@ -17,3 +17,8 @@
 .compactGraph :global(.ebayGraphData) summary{font-size:10px;opacity:.8}
 .compactGraph :global(.ebayGraphScrubber){width:calc(100% - 54px);margin:16px 0 14px 54px;height:10px}
 @media(max-width:650px){.compactGraph{padding:16px}.compactGraph :global(.ebayGraphHeader){flex-direction:row;align-items:center;flex-wrap:wrap;gap:10px}.compactGraph :global(.ebayGraphSwitch){width:auto}.compactGraph :global(.ebayGraphReadout){margin-top:12px;gap:8px}.compactGraph :global(.ebayGraphReadout) strong{font-size:19px}.compactGraph :global(.ebayGraphReadout) :global(.muted){font-size:10px}}
+
+.singleDay :global(.ebayGraphReadout){margin:16px 0 8px}
+.singleDay :global(.ebayGraphEmpty){min-height:48px;padding:12px;font-size:12px}
+.dayHint{font-size:11px;color:var(--muted);margin:0 0 12px;line-height:1.5}
+.singleDay :global(.ebayGraphData){margin-top:0}
