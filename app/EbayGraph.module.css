@@ -1,0 +1,19 @@
+.compactGraph{padding:20px 22px;margin-bottom:20px}
+.compactGraph :global(.ebayGraphHeader){gap:14px}
+.compactGraph h2{font-size:15px;margin:0;letter-spacing:-.2px}
+.compactGraph :global(.ebayGraphSwitch){gap:5px;padding:3px;border:1px solid var(--border);border-radius:10px;background:rgba(128,145,180,.04);flex-shrink:0}
+.compactGraph :global(.ebayGraphSwitch) button{font-size:11px;padding:6px 11px;min-height:28px;border-radius:7px;box-shadow:none;white-space:nowrap;flex:0 0 auto}
+.compactGraph :global(.ebayGraphSwitch) :global(.outlineBtn){border-color:transparent;background:transparent}
+.compactGraph :global(.ebayGraphReadout){margin:14px 0 10px;gap:10px;font-size:11px}
+.compactGraph :global(.ebayGraphReadout) strong{font-size:20px;letter-spacing:-.5px}
+.compactGraph :global(.ebayTrend){width:100%;height:164px;min-height:0;max-height:164px}
+.compactGraph :global(.ebayTrendLine){stroke-width:2;vector-effect:non-scaling-stroke}
+.compactGraph :global(.ebayGridLine){stroke:#94a3b814;stroke-dasharray:3 5}
+.compactGraph :global(.ebayAxis){font-size:10px;fill:var(--muted)}
+.compactGraph :global(.ebayCursor){stroke:#94a3b82e;stroke-dasharray:3 5}
+.compactGraph :global(.ebayTrendDot){stroke-width:1.5}
+.compactGraph :global(.ebayGraphEmpty){min-height:164px;font-size:12px}
+.compactGraph :global(.ebayGraphData){margin-top:8px}
+.compactGraph :global(.ebayGraphData) summary{font-size:10px;opacity:.8}
+.compactGraph :global(.ebayGraphScrubber){width:calc(100% - 54px);margin:16px 0 14px 54px;height:10px}
+@media(max-width:650px){.compactGraph{padding:16px}.compactGraph :global(.ebayGraphHeader){flex-direction:row;align-items:center;flex-wrap:wrap;gap:10px}.compactGraph :global(.ebayGraphSwitch){width:auto}.compactGraph :global(.ebayGraphReadout){margin-top:12px;gap:8px}.compactGraph :global(.ebayGraphReadout) strong{font-size:19px}.compactGraph :global(.ebayGraphReadout) :global(.muted){font-size:10px}}
