@@ -33,7 +33,12 @@ begin
   insert into ebay_transactions(owner_id,account_id,transaction_type,transaction_id,transaction_date,data) values(p_owner,p_account,r->>'type',r->>'id',(r->>'date')::timestamptz,r);
  end loop;
  insert into ebay_finance_syncs(owner_id,account_id,start_at,end_at) values(p_owner,p_account,p_start,p_end)
- on conflict(owner_id,account_id) do update set start_at=excluded.start_at,end_at=excluded.end_at,synced_at=now();
+ on conflict(owner_id,account_id) do update set
+  start_at=case when ebay_finance_syncs.end_at>=excluded.start_at and excluded.end_at>=ebay_finance_syncs.start_at
+    then least(ebay_finance_syncs.start_at,excluded.start_at) else excluded.start_at end,
+  end_at=case when ebay_finance_syncs.end_at>=excluded.start_at and excluded.end_at>=ebay_finance_syncs.start_at
+    then greatest(ebay_finance_syncs.end_at,excluded.end_at) else excluded.end_at end,
+  synced_at=now();
  update ebay_connections set sync_lock=null,sync_locked_until=null where owner_id=p_owner and sync_lock=p_token;
 end $$;
 -- Replace deletion transaction to cover the new financial storage too.
