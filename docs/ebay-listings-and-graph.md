@@ -27,3 +27,13 @@ A real hosted listing request still needs verification after deployment/reconnec
 - [eBay OAuth and refresh scope behavior](https://developer.ebay.com/develop/guides/sell/authorization)
 
 Run `node --experimental-strip-types --test tests/*.test.mjs` and `npm run build`. Listing tests cover sanitization, XML failures/entity rejection, unsafe images, currency/price ranges, auctions and owner binding. Series tests reconcile daily sums to accounting, calendar boundaries and unavailable profit. Browser checks cover desktop/mobile graph controls, images and fallback, pagination and Connections-only seller controls.
+
+## Daily sales below the overview graph
+
+Sales of the day lists paid orders by New York order-creation day, independent of the financial posting-date totals above. It defaults to today, supports date selection and pages of 25 orders, and shows exact listing images, quantity, seller SKU, order ID, time and order total. Order totals include buyer shipping and exclude sales tax/fees/refund adjustments; refunded statuses are labeled. Page subtotals are labeled when multiple pages exist.
+
+The authenticated daily-sales endpoint filters every database query by verified owner and connected account. It accepts a day/page, never an image URL or seller ID. Order imports now preserve the exact numeric legacy listing ID in their existing JSON payload, so no SQL is needed. Select Sync eBay once after deployment to refresh older imports with this metadata. Image lookup uses read-only GetItem calls for those owned order-line listing IDs, including sold/ended listings when eBay retains their images; no title matching or arbitrary pictures are used. Unavailable images do not hide sales. Only eBay CDN images are accepted.
+
+Requests are bounded by per-call timeouts, a shared lookup deadline, four concurrent lookups and 128 KiB XML limits. Responses are private/no-store, and tokens/raw provider bodies are not exposed. No new listing storage or deletion migration is introduced. These calls retrieve images on demand/refresh rather than adding recurring background jobs.
+
+Validation includes inclusive rolling periods, current-day snapshot coverage, optional packaging and summary/graph consistency, exact image matching, authorization, day bounds, pagination and failure fallbacks. Browser fixtures verify saving product and postage costs produces profit with the packaging exclusion note, and daily image/order rows appear below the chart on desktop and mobile. No live seller account or production writes are exercised.
